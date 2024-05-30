@@ -64,17 +64,16 @@ def load_signal_files(show_plot=False, save_plot=False):
         
     return signal_files, falls_dict, meta
 
-def train_test_subjects_split(prefall=1, fall=1, postfall=25.5, thresh=1.4, adl_samples=None, visualize=True):
+def train_test_subjects_split(prefall=1, fall=1, postfall=25.5, thresh=1.4,
+                              adl_samples=None, visualize=True):
     signal_files, falls_dict, meta = load_signal_files()
     subjects = list(falls_dict.keys())
     # Have 65 subjects for training, 27 for testing
     test_set = ['74827807', '74905787', '75240038', '76573505', '79232001', '79336438', '79666043', '79761947', '80061866', '87486959', '88051353', '89647122', '91923026', '91943076', '92097726', '92680167', '93169462', '93807530', '95030446', '95205003', '95253031', '96201346', '96856291', '97085274', '97097674', '97946301', '98843998']
-    train_set = list(set(subjects) - set(test_set))
+    # train_set = list(set(subjects) - set(test_set))
     X_train = []; y_train = [];
     X_test = []; y_test = [];
-    pip = 27
 
-    # fig, axs = plt.subplots(1,3, figsize=(12,4), dpi=150, sharey=True)
     for sf in signal_files:
         if sf == "F_00002186-05-2013-11-23-18-25-04.mat":
             continue
@@ -100,14 +99,11 @@ def train_test_subjects_split(prefall=1, fall=1, postfall=25.5, thresh=1.4, adl_
         prefall_signal = accel_magnitude[:before]
         # Segment fall_signal
         X_train, X_test, y_train, y_test = get_windows(
-            X_train, X_test, y_train, y_test, fall_signal, freq,
-            target=1, test=test,
-            prefall=prefall, fall=fall, postfall=postfall)
+            X_train, X_test, y_train, y_test, fall_signal, freq, target=1,
+            test=test, prefall=prefall, fall=fall, postfall=postfall)
         # Segment prefall_signal
         X_train, X_test, y_train, y_test = get_windows(
-            X_train, X_test, y_train, y_test, prefall_signal, freq,
-            target=0, thresh=thresh, test=test,
-            prefall=prefall, fall=fall, postfall=postfall)
+            X_train, X_test, y_train, y_test, prefall_signal, freq, target=0, thresh=thresh, test=test, prefall=prefall, fall=fall, postfall=postfall)
     X_train = np.array(X_train)
     y_train = np.array(y_train)
     X_test = np.array(X_test)
@@ -120,6 +116,7 @@ def train_test_subjects_split(prefall=1, fall=1, postfall=25.5, thresh=1.4, adl_
     ([ADLs, Falls])", np.bincount(y_test))
     if visualize:
         visualize_falls_adls(X_train, y_train)
+        visualize_falls_adls(X_test, y_test, set="test")
     return X_train, y_train, X_test, y_test
 
 def sample_adls(X_train, y_train, adl_samples):
@@ -140,12 +137,12 @@ def sample_adls(X_train, y_train, adl_samples):
     y_train = X_train_rejoined[:,-1].astype(int)
     return X_train, y_train
 
-def visualize_falls_adls(X_train, y_train, save=True):
+def visualize_falls_adls(X, y, set="train", save=True):
     fig, axs = plt.subplots(1, 2, figsize=(12, 4), dpi=150,
                         sharey=True, layout='tight')
-    fallers = y_train.astype(bool)
-    falls = X_train[fallers]
-    adls = X_train[fallers == False]
+    fallers = y.astype(bool)
+    falls = X[fallers]
+    adls = X[fallers == False]
     axs[0].plot(adls.T, color='lightblue')
     axs[0].plot(adls.mean(axis=0), color='blue', label='mean sample')
     axs[0].set_title('ADL samples')
@@ -155,7 +152,7 @@ def visualize_falls_adls(X_train, y_train, save=True):
     axs[1].plot(falls.mean(axis=0), color='blue', label='mean sample')
     axs[1].set_title('Fall samples')
     
-    fig.suptitle("Mean ADLs and fall samples in the training set")
+    fig.suptitle(f"Mean ADLs and fall samples in the {set} set")
     axs[1].legend()
     if save:
         plt.savefig('figs/adls_vs_falls.pdf', bbox_inches='tight')

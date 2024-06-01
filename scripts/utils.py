@@ -179,7 +179,7 @@ def get_windows(X_train, X_test, y_train, y_test,
     return X_train, X_test, y_train, y_test
 
 def magnitude(arr):
-    x, y, z = arr.T
+    x, y, z = arr.T.astype('float')
     magnitude = np.sqrt(x**2 + y**2 + z**2)
     magnitude -= min(magnitude)
     return magnitude

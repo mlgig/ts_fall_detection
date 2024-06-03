@@ -1,6 +1,6 @@
 import os
 import mat73
-# import utils
+from scripts.utils import visualize_falls_adls
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -136,27 +136,6 @@ def sample_adls(X_train, y_train, adl_samples):
     X_train = X_train_rejoined[:,:-1]
     y_train = X_train_rejoined[:,-1].astype(int)
     return X_train, y_train
-
-def visualize_falls_adls(X, y, set="train", save=True):
-    fig, axs = plt.subplots(1, 2, figsize=(12, 4), dpi=150,
-                        sharey=True, layout='tight')
-    fallers = y.astype(bool)
-    falls = X[fallers]
-    adls = X[fallers == False]
-    axs[0].plot(adls.T, color='lightblue')
-    axs[0].plot(adls.mean(axis=0), color='blue', label='mean sample')
-    axs[0].set_title('ADL samples')
-    axs[0].set_ylabel('Accel magnitude (g)')
-    
-    axs[1].plot(falls.T, color='lightblue')
-    axs[1].plot(falls.mean(axis=0), color='blue', label='mean sample')
-    axs[1].set_title('Fall samples')
-    
-    fig.suptitle(f"Mean ADLs and fall samples in the {set} set")
-    axs[1].legend()
-    if save:
-        plt.savefig('figs/adls_vs_falls.pdf', bbox_inches='tight')
-    plt.show()
 
 def expand_for_ts(X_train, X_test):
     X_train = np.array(X_train)[:, np.newaxis, :]

@@ -63,7 +63,6 @@ def run_ts_models(X_train, y_train, X_test, y_test, window_size=2750):
         'MultiRocketHydra': MultiRocketHydraClassifier(random_state=0, n_jobs=-1),
         # 'InceptionTime': InceptionTimeClassifier(n_epochs=100, random_state=0),
         'FCN': FCNClassifier(n_epochs=100, random_state=0),
-        #'TimeSeriesKNN': KNeighborsTimeSeriesClassifier(n_jobs=-1),
         'Catch22': Catch22Classifier(random_state=0, n_jobs=-1),
         'QUANT': QUANTClassifier(random_state=0),
         'DrCIF': DrCIFClassifier(random_state=0, n_jobs=-1),

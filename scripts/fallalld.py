@@ -1,12 +1,11 @@
 import os
 import mat73
-# import utils
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.signal import resample
-from scripts import utils
+from scripts.utils import magnitude, visualize_falls_adls
 from sklearn.model_selection import train_test_split
 
 def load():
@@ -32,17 +31,23 @@ def g_from_LSB(arr, sensitivity=0.244):
 def reshape_arr(arr):
 	return np.reshape(arr, (1,-1))
 
-def get_X_y(df):
-    X = np.zeros([df.shape[0], df['Accel'][0].size])
+def get_X_y(df, winsize=7, clip=True):
+    freq = 238
+    X = np.zeros([df.shape[0], winsize*freq])
+    # start 1 sec before the fall
+    start = int(df['Accel'][0].size/2) - freq
+    end = start + (freq * winsize)
     for i, row in enumerate(df['Accel']):
-        X[i] = row
+        if clip:
+             row = np.clip(row, 0, 8)
+        X[i] = row[:, start:end]
     y = np.array(df['target'], dtype='uint8')
     return X, y
 
-def subject_train_test_split(test=0.3, random_state=0):
+def train_test_subjects_split(test=0.3, random_state=0, visualize=True):
     df = load()
     df['Accel'] = df['Acc'].apply(g_from_LSB).apply(
-        utils.magnitude).apply(reshape_arr)
+        magnitude).apply(reshape_arr)
     df.drop(columns=['Acc'], inplace=True)
     subjects = df['SubjectID'].unique()
     train_set, test_set = train_test_split(subjects, random_state=random_state)
@@ -55,4 +60,11 @@ def subject_train_test_split(test=0.3, random_state=0):
         df.reset_index().drop(columns=['index'], inplace=True)
     X_train, y_train = get_X_y(df)
     X_test, y_test = get_X_y(test_df)
+    print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
+    ([ADLs, Falls])", np.bincount(y_train))
+    print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
+    ([ADLs, Falls])", np.bincount(y_test))
+    if visualize:
+        visualize_falls_adls(X_train, y_train)
+        visualize_falls_adls(X_test, y_test, set="test")
     return X_train, y_train, X_test, y_test

@@ -1,5 +1,3 @@
-import os
-import mat73
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -44,13 +42,14 @@ def get_X_y(df, winsize=7, clip=True):
     y = np.array(df['target'], dtype='uint8')
     return X, y
 
-def train_test_subjects_split(test=0.3, random_state=0, visualize=True):
+def train_test_subjects_split(test_size=0.3, random_state=0, visualize=True):
     df = load()
     df['Accel'] = df['Acc'].apply(g_from_LSB).apply(
         magnitude).apply(reshape_arr)
     df.drop(columns=['Acc'], inplace=True)
     subjects = df['SubjectID'].unique()
-    train_set, test_set = train_test_split(subjects, random_state=random_state)
+    print(f'{len(subjects)} subjects')
+    train_set, test_set = train_test_split(subjects, test_size=test_size, random_state=random_state)
     test_df = df[df['SubjectID']==test_set[0]]
     df.drop(df[df['SubjectID']==test_set[0]].index, inplace=True)
     for id in test_set[1:]:

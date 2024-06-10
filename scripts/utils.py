@@ -187,6 +187,9 @@ def magnitude(arr):
 def visualize_falls_adls(X, y, set="train", save=True):
     fig, axs = plt.subplots(1, 2, figsize=(12, 4), dpi=150,
                         sharey=True, layout='tight')
+    # remove dims with size 1
+    X = np.squeeze(X)
+    y = np.squeeze(y)
     fallers = y.astype(bool)
     falls = X[fallers]
     adls = X[fallers == False]
@@ -198,7 +201,6 @@ def visualize_falls_adls(X, y, set="train", save=True):
     axs[1].plot(falls.T, color='lightblue')
     axs[1].plot(falls.mean(axis=0), color='blue', label='mean sample')
     axs[1].set_title('Fall samples')
-    
     fig.suptitle(f"Mean ADLs and fall samples in the {set} set")
     axs[1].legend()
     if save:

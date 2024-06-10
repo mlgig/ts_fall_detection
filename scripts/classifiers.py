@@ -22,6 +22,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler, Normalizer
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import ConfusionMatrixDisplay
 
 from aeon.classification.deep_learning import InceptionTimeClassifier
@@ -33,14 +34,20 @@ from aeon.classification.interval_based import QUANTClassifier
 from aeon.classification.convolution_based import RocketClassifier, HydraClassifier
 from aeon.classification.convolution_based import MultiRocketHydraClassifier
 
+from scripts.TsCaptum.explainers import Shapley_Value_Sampling as SHAP
 
-def run_tabular_models(X_train, y_train, X_test, y_test, window_size=2750):
+def explain_model(model, X, y, chunks):
+    shap = SHAP(model)
+    exp = shap.explain(X, labels=y, n_segments=chunks)
+    return exp
 
+def run_tabular_models(X_train, y_train, X_test, y_test, freq, s=27.5):
+    window_size = int(s * freq)
     tabular_models = {
-        'Logistic': LogisticRegression(random_state=0, n_jobs=-1, solver='newton-cg'),
+        'LogisticCV': LogisticRegressionCV(cv=5, n_jobs=-1, solver='newton-cg'),
         'RandomForest': RandomForestClassifier(n_estimators=150, random_state=0),
         'KNN': KNeighborsClassifier(),
-        'Ridge': RidgeClassifier(random_state=0),
+        'RidgeCV': RidgeClassifierCV(alphas=np.logspace(-3, 3, 10)),
         'ExtraTrees': ExtraTreesClassifier(n_estimators=150, max_features=0.1,
                                            criterion="entropy", n_jobs=-1,
                                            random_state =0)
@@ -52,21 +59,32 @@ def run_tabular_models(X_train, y_train, X_test, y_test, window_size=2750):
                                y_in=(y_train, y_test))
         these_metrics = pd.DataFrame(data=metrics)
         metrics_df = pd.concat([metrics_df, these_metrics], ignore_index=True)
-    
-    return metrics_df
 
-def run_ts_models(X_train, y_train, X_test, y_test, window_size=2750):
+    return metrics_df, tabular_models
 
-    ts_models = {
-        'Hydra': HydraClassifier(random_state=0, n_jobs=-1),
-        'Rocket': RocketClassifier(random_state=0, n_jobs=-1),
-        'MultiRocketHydra': MultiRocketHydraClassifier(random_state=0, n_jobs=-1),
-        # 'InceptionTime': InceptionTimeClassifier(n_epochs=100, random_state=0),
-        'FCN': FCNClassifier(n_epochs=100, random_state=0),
-        'Catch22': Catch22Classifier(random_state=0, n_jobs=-1),
+def run_ts_models(X_train, y_train, X_test, y_test, freq, s=27.5):
+    window_size = int(s * freq)
+    fast = {
+        # 'Hydra': HydraClassifier(random_state=0, n_jobs=-1),
+        # 'Rocket': RocketClassifier(random_state=0, n_jobs=-1),
+        # 'MultiRocketHydra': MultiRocketHydraClassifier(random_state=0, n_jobs=-1),
+        # 'Catch22': Catch22Classifier(random_state=0, n_jobs=-1),
         'QUANT': QUANTClassifier(random_state=0),
-        'DrCIF': DrCIFClassifier(random_state=0, n_jobs=-1),
     }
+    slow = {
+        'FCN': FCNClassifier(n_epochs=100, random_state=0),
+    }
+    very_slow = {
+        'DrCIF': DrCIFClassifier(random_state=0, n_jobs=-1),
+        'InceptionTime': InceptionTimeClassifier(n_epochs=100, random_state=0),
+    }
+
+    if s==27.5:
+        ts_models = {**fast}
+    elif s==7:
+        ts_models = {**fast, **slow}
+    else:
+        ts_models = {**fast, **slow, **very_slow}
 
     metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score'])
     for model in ts_models.items():
@@ -75,7 +93,7 @@ def run_ts_models(X_train, y_train, X_test, y_test, window_size=2750):
         these_metrics = pd.DataFrame(data=metrics)
         metrics_df = pd.concat([metrics_df, these_metrics], ignore_index=True)
 
-    return metrics_df
+    return metrics_df, ts_models
 
 def plot_metrics(df, x='model', pivot='f1-score', compare='metrics', **kwargs):
     default_kwargs = {'figsize': (6,2), 'rot': 0}
@@ -102,6 +120,11 @@ def to_labels(pos_probs, threshold):
 def predict_eval(model, win_size, X_in=None, y_in=None, starttime=None, adapt_threshold=False, verbose=1):
     target_names = ['ADL', 'Fall']
     model_name, clf = model
+    clf = make_pipeline(
+        StandardScaler(),
+        SimpleImputer(missing_values=np.nan, strategy='mean'),
+        clf
+    )
     has_proba = hasattr(clf, 'predict_proba')
     if X_in is not None:
         X_train, X_test = X_in

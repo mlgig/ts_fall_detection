@@ -117,7 +117,7 @@ def train_test_subjects_split(prefall=1, fall=1, postfall=25.5, thresh=1.4,
     if visualize:
         visualize_falls_adls(X_train, y_train)
         visualize_falls_adls(X_test, y_test, set="test")
-    return X_train, y_train, X_test, y_test
+    return X_train, y_train, X_test, y_test, accel
 
 def sample_adls(X_train, y_train, adl_samples):
     # Group falls and ADLs together to sample from ADLs

@@ -10,6 +10,7 @@ def load():
     # sisfall = pd.read_pickle(r'data/SisFall.pkl')
     sisfall = pd.read_pickle(r'data/SisFall_MMA8451Q.pkl').reset_index().drop(columns=['index'])
     sisfall.drop(columns=['TrialNo'], inplace=True)
+    sisfall['accel_g'] = sisfall['Acc'].apply(get_g).apply(magnitude)
     sisfall = sisfall[sisfall['Duration (s)'] > 12]
     return sisfall
 
@@ -50,7 +51,7 @@ def get_X_y(df, freq=200):
     y = []
     for i, row in df.iterrows():
         cw, targets = get_candidate_windows(
-            row['Accel'], freq=freq,target=row['Target'])
+            row['accel_g'], freq=freq,target=row['Target'])
         X.extend(cw)
         y.extend(targets)
     X = np.array(X)
@@ -59,7 +60,6 @@ def get_X_y(df, freq=200):
 
 def train_test_subjects_split(test_size=0.3, random_state=0, visualize=True):
     df = load()
-    df['Accel'] = df['Acc'].apply(get_g).apply(magnitude)
     df.drop(columns=['Acc'], inplace=True)
     subjects = df['SubjectID'].unique()
     print(f'{len(subjects)} subjects')

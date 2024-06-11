@@ -19,6 +19,8 @@ def load():
     # drop rows with activities outside the chosen ones
     fallalld_waist.drop(fallalld_waist[fallalld_waist['target']>1].index, inplace=True)
     fallalld_waist.drop(columns=['Gyr', 'Mag', 'Bar', 'TrialNo', 'Device'], inplace=True)
+    fallalld_waist['accel_g'] = fallalld_waist['Acc'].apply(
+         g_from_LSB).apply(magnitude).apply(reshape_arr)
     return fallalld_waist
 
 
@@ -33,9 +35,9 @@ def get_X_y(df, winsize=7, clip=True):
     freq = 238
     X = np.zeros([df.shape[0], winsize*freq])
     # start 1 sec before the fall
-    start = int(df['Accel'][0].size/2) - freq
+    start = int(df['accel_g'][0].size/2) - freq
     end = start + (freq * winsize)
-    for i, row in enumerate(df['Accel']):
+    for i, row in enumerate(df['accel_g']):
         if clip:
              row = np.clip(row, 0, 8)
         X[i] = row[:, start:end]
@@ -44,8 +46,6 @@ def get_X_y(df, winsize=7, clip=True):
 
 def train_test_subjects_split(test_size=0.3, random_state=0, visualize=True):
     df = load()
-    df['Accel'] = df['Acc'].apply(g_from_LSB).apply(
-        magnitude).apply(reshape_arr)
     df.drop(columns=['Acc'], inplace=True)
     subjects = df['SubjectID'].unique()
     print(f'{len(subjects)} subjects')

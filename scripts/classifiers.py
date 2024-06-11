@@ -6,14 +6,14 @@ import matplotlib.pyplot as plt, seaborn as sns
 sns.set_style("ticks")
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from scripts import farseeing
+from scripts import farseeing, fallalld, sisfall
 
 from sklearn.linear_model import RidgeClassifierCV, RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegressionCV, LogisticRegression
-from sklearn.model_selection import train_test_split as tts
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
 
 from sklearn.metrics import accuracy_score, roc_auc_score
@@ -41,59 +41,48 @@ def explain_model(model, X, y, chunks):
     exp = shap.explain(X, labels=y, n_segments=chunks)
     return exp
 
-def run_tabular_models(X_train, y_train, X_test, y_test, freq, s=27.5):
-    window_size = int(s * freq)
-    tabular_models = {
-        'LogisticCV': LogisticRegressionCV(cv=5, n_jobs=-1, solver='newton-cg'),
-        'RandomForest': RandomForestClassifier(n_estimators=150, random_state=0),
-        'KNN': KNeighborsClassifier(),
-        'RidgeCV': RidgeClassifierCV(alphas=np.logspace(-3, 3, 10)),
-        'ExtraTrees': ExtraTreesClassifier(n_estimators=150, max_features=0.1,
-                                           criterion="entropy", n_jobs=-1,
-                                           random_state =0)
+def get_models(type=None, models_subset=None):
+    all_models = {
+        'tabular': {
+            'LogisticCV': LogisticRegressionCV(cv=5, n_jobs=-1, solver='newton-cg'),
+            'RandomForest': RandomForestClassifier(n_estimators=150, random_state=0),
+            'KNN': KNeighborsClassifier(),
+            'RidgeCV': RidgeClassifierCV(alphas=np.logspace(-3, 3, 10)),
+            'ExtraTrees': ExtraTreesClassifier(n_estimators=150, max_features=0.1,
+                                            criterion="entropy", n_jobs=-1,
+                                            random_state =0)
+        },
+        'ts': {
+            'Hydra': HydraClassifier(random_state=0, n_jobs=-1),
+            'Rocket': RocketClassifier(random_state=0, n_jobs=-1),
+            'MultiRocketHydra': MultiRocketHydraClassifier(random_state=0, n_jobs=-1),
+            'Catch22': Catch22Classifier(random_state=0, n_jobs=-1),
+            'QUANT': QUANTClassifier(random_state=0),
+            'FCN': FCNClassifier(n_epochs=100, random_state=0)
+        }
     }
 
+    if type is None: # run all models
+        models = {**all_models['tabular'], **all_models['ts']}
+    else: # the saner choice
+        models = all_models[type]
+    if models_subset is not None: # select model subset
+        models = {m: models[m] for m in models_subset}
+    
+    return models
+
+
+def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=None):
+    window_size = int(s*freq)
+    models = get_models(type=type, models_subset=subset)
     metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score'])
-    for model in tabular_models.items():
+    for model in models.items():
         metrics = predict_eval(model, window_size, X_in=(X_train, X_test),
                                y_in=(y_train, y_test))
         these_metrics = pd.DataFrame(data=metrics)
         metrics_df = pd.concat([metrics_df, these_metrics], ignore_index=True)
 
-    return metrics_df, tabular_models
-
-def run_ts_models(X_train, y_train, X_test, y_test, freq, s=27.5):
-    window_size = int(s * freq)
-    fast = {
-        # 'Hydra': HydraClassifier(random_state=0, n_jobs=-1),
-        # 'Rocket': RocketClassifier(random_state=0, n_jobs=-1),
-        # 'MultiRocketHydra': MultiRocketHydraClassifier(random_state=0, n_jobs=-1),
-        # 'Catch22': Catch22Classifier(random_state=0, n_jobs=-1),
-        'QUANT': QUANTClassifier(random_state=0),
-    }
-    slow = {
-        'FCN': FCNClassifier(n_epochs=100, random_state=0),
-    }
-    very_slow = {
-        'DrCIF': DrCIFClassifier(random_state=0, n_jobs=-1),
-        'InceptionTime': InceptionTimeClassifier(n_epochs=100, random_state=0),
-    }
-
-    if s==27.5:
-        ts_models = {**fast}
-    elif s==7:
-        ts_models = {**fast, **slow}
-    else:
-        ts_models = {**fast, **slow, **very_slow}
-
-    metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score'])
-    for model in ts_models.items():
-        metrics = predict_eval(model, window_size, X_in=(X_train, X_test),
-                               y_in=(y_train, y_test))
-        these_metrics = pd.DataFrame(data=metrics)
-        metrics_df = pd.concat([metrics_df, these_metrics], ignore_index=True)
-
-    return metrics_df, ts_models
+    return metrics_df, models
 
 def plot_metrics(df, x='model', pivot='f1-score', compare='metrics', **kwargs):
     default_kwargs = {'figsize': (6,2), 'rot': 0}
@@ -174,8 +163,63 @@ def predict_eval(model, win_size, X_in=None, y_in=None, starttime=None, adapt_th
         plt.show()
     return dict({'model': [model_name],
                  'window_size': win_size,
-                 'runtime':[runtime],
-                 'precision':[precision],
-                 'recall':[recall],
-                 'f1-score':[f1]}
+                 'runtime':[np.round(runtime, 2)],
+                 'precision':[np.round(precision, 2)],
+                 'recall':[np.round(recall, 2)],
+                 'f1-score':[np.round(f1, 2)]}
                 )
+
+def chunk_list(l, n):
+    n_per_set = len(l)//n
+    for i in range(1, len(l), n_per_set):
+        yield l[i:i+n_per_set]
+
+def get_freq(dataset):
+    if dataset==farseeing:
+        return 100
+    elif dataset==fallalld:
+        return 238
+    else:
+        return 200
+
+def cross_validate(dataset, models_subset, s=7, cv=5):
+    df = dataset.load()
+    subjects = list(df['SubjectID'].unique())
+    # divide subjects into cv sets
+    test_sets = list(chunk_list(subjects, cv))
+    freq = get_freq(dataset)
+    metrics_df = None
+    for i, test_set in enumerate(test_sets):
+        test_df = df[df['SubjectID']==test_set[0]]
+        train_df = df.drop(df[df['SubjectID']==test_set[0]].index)
+        for id in test_set[1:]:
+            this_df = df[df['SubjectID']==id]
+            test_df = pd.concat([test_df, this_df], ignore_index=True)
+            train_df.drop(this_df.index, inplace=True)
+            train_df.reset_index().drop(columns=['index'], inplace=True)
+        X_train, y_train = dataset.get_X_y(train_df)
+        X_test, y_test = dataset.get_X_y(test_df)
+        print(f'\nFold {i} --------------')
+        print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
+        ([ADLs, Falls])", np.bincount(y_train))
+        print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
+        ([ADLs, Falls])", np.bincount(y_test))
+        if metrics_df is None:
+            metrics_df, _ = run_models(X_train, y_train, X_test, y_test,
+                                       freq=freq, s=s, subset=models_subset)
+            metrics_df['fold'] = i
+        else:
+            this_df, _ = run_models(X_train, y_train, X_test, y_test,
+                                    freq=freq, s=s, subset=models_subset)
+            this_df['fold'] = i
+            metrics_df = pd.concat([metrics_df, this_df], ignore_index=True)
+    mean_df = metrics_df.groupby(['model']).mean().round(2)
+    std_df = metrics_df.groupby(['model']).std().round(2)
+    cols = ['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score']
+    aggr = {c: [] for c in cols}
+    for i in mean_df.index:
+        aggr['model'].append(i)
+        for col in cols[1:]:
+            aggr[col].append(f'{mean_df.loc[i][col]}$\pm${std_df.loc[i][col]}')
+    aggr_df = pd.DataFrame(data=aggr)
+    return metrics_df, mean_df, aggr_df

@@ -6,118 +6,11 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.signal import resample
+from sklearn.model_selection import train_test_split
 
-def get_description(sensor_location=None):
-    cols = ['Randomnumber', 'Setting', 'Sensor_location', 'Sample_rate_Hz',
-        'Pre_fall_activity_reported', 'fall_direction_reported']
-    meta = pd.read_excel(r'data/FARSEEING/description.xlsx', engine='openpyxl', usecols=cols)
-    if sensor_location == 'L5':
-        meta = meta[meta['Sensor_location']=='L5']
-    if sensor_location == 'Thigh':
-        meta = meta[meta['Sensor_location']=='Thigh']
-  
-    return meta
-
-def load_signal_files(show_plot=False, save_plot=False):
-    meta = get_description()
-    signal_files = os.listdir(r'data/FARSEEING/signals')
-    falls_dict = {}
-    for sf in signal_files:
-        p, ID = sf[2:].split('-')[:2]
-        if p in falls_dict:
-            falls_dict[p].append(sf)
-        else:
-            falls_dict[p] = [sf]
-
-    if show_plot or save_plot:
-        fig, axs = plt.subplots(2,3, figsize=(12,6), dpi=150, sharey='row')
-        for sf in signal_files:
-            fall_id = '-'.join(sf.split("_")[1].split("-")[:2])
-            row = meta[meta['Randomnumber']==fall_id]
-            freq = row['Sample_rate_Hz'].item()
-            signal = mat73.loadmat(f'data/FARSEEING/signals/{sf}')
-            time = signal['tmp'][:,0]
-            accel = signal['tmp'][:,2:5]/9.8
-            accel_norm = np.clip(accel, -2, 2)
-            labels = ['x','y','z']
-            for i, sig in enumerate(accel_norm.T):
-                if freq == 20: # resample to make freq=100Hz
-                    sig = resample(sig, 120000)
-                if row['Sensor_location'].item() == 'L5':
-                    axs[0,i].plot(sig)
-                else:
-                    axs[1,i].plot(sig)
-                axs[0,i].set_title(f'Acceleration {labels[i]}')
-        for ax in axs.flatten():
-            ymin, ymax = ax.get_ylim()
-            ax.scatter(60000, ymin, label='fall')
-        fig.supylabel(r'Accel (g)')
-        fig.supxlabel('Time in seconds')
-        axs[0,0].set_ylabel('Sensor on L5')
-        axs[1,0].set_ylabel('Sensor on Thigh')
-        fig.tight_layout()
-        plt.legend()
-        if save_plot:
-            plt.savefig('/figs/signal_files.pdf')
-        if show_plot:
-            plt.show()
-        
-    return signal_files, falls_dict, meta
-
-def train_test_subjects_split(prefall=1, fall=1, postfall=25.5, thresh=1.4,
-                              adl_samples=None, visualize=True):
-    signal_files, falls_dict, meta = load_signal_files()
-    subjects = list(falls_dict.keys())
-    # Have 65 subjects for training, 27 for testing
-    test_set = ['74827807', '74905787', '75240038', '76573505', '79232001', '79336438', '79666043', '79761947', '80061866', '87486959', '88051353', '89647122', '91923026', '91943076', '92097726', '92680167', '93169462', '93807530', '95030446', '95205003', '95253031', '96201346', '96856291', '97085274', '97097674', '97946301', '98843998']
-    # train_set = list(set(subjects) - set(test_set))
-    X_train = []; y_train = [];
-    X_test = []; y_test = [];
-
-    for sf in signal_files:
-        if sf == "F_00002186-05-2013-11-23-18-25-04.mat":
-            continue
-        fall_id = '-'.join(sf.split("_")[1].split("-")[:2])
-        row = meta[meta['Randomnumber']==fall_id]
-        if row['Sensor_location'].item() != 'L5':
-            continue
-        subject = fall_id.split("-")[0]
-        test = subject in test_set
-        freq = row['Sample_rate_Hz'].item()
-        signal = mat73.loadmat(f'data/FARSEEING/signals/{sf}')
-        time = signal['tmp'][:,0]
-        accel = signal['tmp'][:,2:5]/9.8
-        accel_magnitude = magnitude(np.clip(accel, -2, 2))
-        fall_indicator = signal['tmp'][:,11]
-        fall_point = np.where(fall_indicator!=0)[0][0]
-        # window_size = prefall + fall + postfall 
-        # end_with_padding = len(accel_magnitude) - int(freq * window_size)
-        # extract the fall <prefall> sec before, and <fall+postfall> secs after
-        before = int(fall_point-(freq*prefall))
-        after = int(fall_point+(freq*(fall+postfall)))
-        fall_signal = accel_magnitude[before:after]
-        prefall_signal = accel_magnitude[:before]
-        # Segment fall_signal
-        X_train, X_test, y_train, y_test = get_windows(
-            X_train, X_test, y_train, y_test, fall_signal, freq, target=1,
-            test=test, prefall=prefall, fall=fall, postfall=postfall)
-        # Segment prefall_signal
-        X_train, X_test, y_train, y_test = get_windows(
-            X_train, X_test, y_train, y_test, prefall_signal, freq, target=0, thresh=thresh, test=test, prefall=prefall, fall=fall, postfall=postfall)
-    X_train = np.array(X_train)
-    y_train = np.array(y_train)
-    X_test = np.array(X_test)
-    y_test = np.array(y_test)
-    if adl_samples is not None:
-        X_train, y_train = sample_adls(X_train, y_train, adl_samples)
-    print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
-    ([ADLs, Falls])", np.bincount(y_train))
-    print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
-    ([ADLs, Falls])", np.bincount(y_test))
-    if visualize:
-        visualize_falls_adls(X_train, y_train)
-        visualize_falls_adls(X_test, y_test, set="test")
-    return X_train, y_train, X_test, y_test, accel
+def load():
+    farseeing = pd.read_pickle(r'data/farseeing.pkl').reset_index().drop(columns=['index'])
+    return farseeing
 
 def sample_adls(X_train, y_train, adl_samples):
     # Group falls and ADLs together to sample from ADLs
@@ -142,11 +35,40 @@ def expand_for_ts(X_train, X_test):
     X_test = np.array(X_test)[:, np.newaxis, :]
     return X_train, X_test
 
-def get_windows(X_train, X_test, y_train, y_test,
-    ts, freq, target, thresh=1.08, step=1, test=False, pip=False,
-    prefall=1, fall=1, postfall=25.5):
-    # Main fall_window = 1 sec, prefall window = 1 sec
-    # postfall window = 1 sec, recovery window = 24.5 secs
+def get_X_y(df, prefall=1, fall=1, postfall=25.5):
+    X = []
+    y = []
+    for i, row in df.iterrows():
+        fall_point = row['fall_point']
+        freq = row['freq']
+        accel = row['accel_mag']
+        # Take out the fall signal
+        before = int(fall_point-(freq*prefall))
+        after = int(fall_point+(freq*(fall+postfall)))
+        fall_signal = accel[before:after]
+        if freq==20:
+            # resample to 100 Hz
+            new_length = int(100*len(fall_signal)/20)
+            fall_signal = resample(fall_signal, new_length)
+        X.append(fall_signal)
+        y.append(1)
+        prefall_signal = accel[:before]
+        # Segment prefall signal
+        cw, targets = get_candidate_windows(
+            prefall_signal, freq=freq, target=0, prefall=prefall,
+            fall=fall, postfall=postfall, thresh=1.4)
+        # print('adl', len(cw), len(targets))
+        X.extend(cw)
+        y.extend(targets)
+    X = np.array(X)
+    y = np.array(y, dtype='uint8')
+    return X, y
+
+def get_candidate_windows(ts, freq, target, prefall,
+                fall, postfall, thresh=1.08, step=1):
+    ts = np.array(ts).flatten()
+    X = []
+    y = []
     total_duration = prefall + fall + postfall
     sample_window_size = int(freq*total_duration)
     required_length = int(freq*(total_duration))
@@ -163,19 +85,55 @@ def get_windows(X_train, X_test, y_train, y_test,
                 selected_window = potential_window
                 if resample_to_100Hz:
                     selected_window = resample(selected_window, freq_100_length)
-                if test:
-                    X_test.append(selected_window)
-                    y_test.append(target)
-                else:
-                    X_train.append(selected_window)
-                    y_train.append(target)
-    return X_train, X_test, y_train, y_test
+                X.append(selected_window)
+                y.append(target)
+    return X, y
 
-def magnitude(arr):
-    x, y, z = arr.T
-    magnitude = np.sqrt(x**2 + y**2 + z**2)
-    magnitude -= min(magnitude)
-    return magnitude
+def train_test_subjects_split(test_size=0.3, random_state=0, visualize=True):
+    df = load()
+    subjects = df['SubjectID'].unique()
+    train_set, test_set = train_test_split(subjects, test_size=test_size, random_state=random_state)
+    test_df = df[df['SubjectID']==test_set[0]]
+    df.drop(df[df['SubjectID']==test_set[0]].index, inplace=True)
+    for id in test_set[1:]:
+        this_df = df[df['SubjectID']==id]
+        test_df = pd.concat([test_df, this_df], ignore_index=True)
+        df.drop(this_df.index, inplace=True)
+        df.reset_index().drop(columns=['index'], inplace=True)
+    X_train, y_train = get_X_y(df)
+    X_test, y_test = get_X_y(test_df)
+    print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
+    ([ADLs, Falls])", np.bincount(y_train))
+    print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
+    ([ADLs, Falls])", np.bincount(y_test))
+    if visualize:
+        visualize_falls_adls(X_train, y_train)
+        visualize_falls_adls(X_test, y_test, set="test")
+    return X_train, y_train, X_test, y_test
 
-# if __name__ == '__main__':
-#     X_train, y_train, X_test, y_test = train_test_subjects_split()
+# uncomment this function to load farseeing into a dataframe
+# def load_in_df():
+#     cols = ['SubjectID', 'FallID', 'freq', 'accel', 'accel_mag', 'fall_point']
+#     df = pd.DataFrame(columns=cols)
+#     signal_files, _, meta = load_signal_files()
+#     df_dict = {}
+#     for sf in tqdm(signal_files):
+#         if sf == "F_00002186-05-2013-11-23-18-25-04.mat":
+#             continue
+#         fall_id = '-'.join(sf.split("_")[1].split("-")[:2])
+#         df_dict['FallID'] = fall_id
+#         row = meta[meta['Randomnumber']==fall_id]
+#         if row['Sensor_location'].item() != 'L5':
+#             continue
+#         df_dict['SubjectID'] = fall_id.split("-")[0]
+#         df_dict['freq'] = row['Sample_rate_Hz'].item()
+#         signal = mat73.loadmat(f'data/FARSEEING/signals/{sf}')
+#         accel = signal['tmp'][:,2:5]/9.8
+#         df_dict['accel'] = [list(accel)]
+#         accel_magnitude = magnitude(np.clip(accel, -2, 2))
+#         df_dict['accel_mag'] = [list(accel_magnitude)]
+#         fall_indicator = signal['tmp'][:,11]
+#         df_dict['fall_point'] = np.where(fall_indicator!=0)[0][0]
+#         this_df = pd.DataFrame(data=df_dict)
+#         df = pd.concat([df, this_df], ignore_index=True)
+#     return df

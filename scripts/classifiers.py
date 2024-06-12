@@ -1,4 +1,5 @@
-import os, time, timeit, json, mat73, argparse
+import timeit
+from tqdm import tqdm
 import numpy as np, pandas as pd
 from scipy.signal import resample
 from scipy.signal import savgol_filter
@@ -58,7 +59,7 @@ def get_models(type=None, models_subset=None):
             'MultiRocketHydra': MultiRocketHydraClassifier(random_state=0, n_jobs=-1),
             'Catch22': Catch22Classifier(random_state=0, n_jobs=-1),
             'QUANT': QUANTClassifier(random_state=0),
-            'FCN': FCNClassifier(n_epochs=100, random_state=0)
+            # 'FCN': FCNClassifier(n_epochs=100, random_state=0)
         }
     }
 
@@ -73,11 +74,10 @@ def get_models(type=None, models_subset=None):
 
 
 def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=None):
-    window_size = int(s*freq)
     models = get_models(type=type, models_subset=subset)
     metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score'])
     for model in models.items():
-        metrics = predict_eval(model, window_size, X_in=(X_train, X_test),
+        metrics = predict_eval(model, s, freq, X_in=(X_train, X_test),
                                y_in=(y_train, y_test))
         these_metrics = pd.DataFrame(data=metrics)
         metrics_df = pd.concat([metrics_df, these_metrics], ignore_index=True)
@@ -106,7 +106,8 @@ def to_labels(pos_probs, threshold):
     # apply threshold to positive probabilities to create labels
     return (pos_probs >= threshold).astype('int')
 
-def predict_eval(model, win_size, X_in=None, y_in=None, starttime=None, adapt_threshold=False, verbose=1):
+def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_threshold=False, verbose=1):
+    win_size = int(s*freq)
     target_names = ['ADL', 'Fall']
     model_name, clf = model
     clf = make_pipeline(
@@ -120,14 +121,11 @@ def predict_eval(model, win_size, X_in=None, y_in=None, starttime=None, adapt_th
         y_train, y_test = y_in
     X_train = X_train[:, :win_size]
     X_test = X_test[:, :win_size]
-    print("> {:<17} (win_size={})".format(model_name, win_size), end='\t')
+    # print(f'(w={s})', end=': ')
+    print(f'{model_name}', end=' ')
     if starttime is None:
         starttime = timeit.default_timer()
-    if verbose:
-        print("Training", end='')
     clf.fit(X_train, y_train)
-    if verbose:
-        print("/Testing", end=' ')
     if has_proba:
         probs = clf.predict_proba(X_test)[:, 1]
         train_probs = clf.predict_proba(X_train)[:, 1]
@@ -147,8 +145,7 @@ def predict_eval(model, win_size, X_in=None, y_in=None, starttime=None, adapt_th
         y_pred = clf.predict(X_test)
     runtime = timeit.default_timer() - starttime
     precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average='binary')
-    if verbose:
-        print(f"in {np.round(runtime,2)} secs.")
+    print(f'({np.round(runtime,2)}s)', end='. ')
     if verbose > 1:
         if has_proba:
             print(f'AUC: {np.round(roc_auc_score(y_test, probs), 2)}')
@@ -162,7 +159,7 @@ def predict_eval(model, win_size, X_in=None, y_in=None, starttime=None, adapt_th
         plt.grid(False)
         plt.show()
     return dict({'model': [model_name],
-                 'window_size': win_size,
+                 'window_size': s,
                  'runtime':[np.round(runtime, 2)],
                  'precision':[np.round(precision, 2)],
                  'recall':[np.round(recall, 2)],
@@ -171,8 +168,11 @@ def predict_eval(model, win_size, X_in=None, y_in=None, starttime=None, adapt_th
 
 def chunk_list(l, n):
     n_per_set = len(l)//n
-    for i in range(1, len(l), n_per_set):
-        yield l[i:i+n_per_set]
+    for i in range(1, n_per_set*n, n_per_set):
+        chunk = l[i:i+n_per_set]
+        if len(chunk) < n_per_set:
+            break
+        yield chunk
 
 def get_freq(dataset):
     if dataset==farseeing:
@@ -182,8 +182,19 @@ def get_freq(dataset):
     else:
         return 200
 
-def cross_validate(dataset, models_subset, s=7, cv=5):
-    df = dataset.load()
+def get_dataset_name(dataset):
+    names = {
+        farseeing: 'farseeing',
+        fallalld: 'fallalld',
+        sisfall: 'sisfall'
+    }
+    return names[dataset]
+
+def cross_validate(dataset, model_type=None, models_subset=None,
+                   s=7, cv=5, df=None, verbose=True):
+    dataset_name = get_dataset_name(dataset)
+    if df is None:
+        df = dataset.load()
     subjects = list(df['SubjectID'].unique())
     # divide subjects into cv sets
     test_sets = list(chunk_list(subjects, cv))
@@ -199,17 +210,18 @@ def cross_validate(dataset, models_subset, s=7, cv=5):
             train_df.reset_index().drop(columns=['index'], inplace=True)
         X_train, y_train = dataset.get_X_y(train_df)
         X_test, y_test = dataset.get_X_y(test_df)
-        print(f'\nFold {i} --------------')
-        print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
-        ([ADLs, Falls])", np.bincount(y_train))
-        print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
-        ([ADLs, Falls])", np.bincount(y_test))
+        if verbose:
+            print(f'\n\n-- fold {i+1} ({len(test_set)} subjects) --')
+            print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
+            ([ADLs, Falls])", np.bincount(y_train))
+            print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
+            ([ADLs, Falls])", np.bincount(y_test))
         if metrics_df is None:
-            metrics_df, _ = run_models(X_train, y_train, X_test, y_test,
+            metrics_df, _ = run_models(X_train, y_train, X_test, y_test, type=model_type,
                                        freq=freq, s=s, subset=models_subset)
             metrics_df['fold'] = i
         else:
-            this_df, _ = run_models(X_train, y_train, X_test, y_test,
+            this_df, _ = run_models(X_train, y_train, X_test, y_test, type=model_type,
                                     freq=freq, s=s, subset=models_subset)
             this_df['fold'] = i
             metrics_df = pd.concat([metrics_df, this_df], ignore_index=True)
@@ -220,6 +232,22 @@ def cross_validate(dataset, models_subset, s=7, cv=5):
     for i in mean_df.index:
         aggr['model'].append(i)
         for col in cols[1:]:
-            aggr[col].append(f'{mean_df.loc[i][col]}$\pm${std_df.loc[i][col]}')
+            aggr[col].append(f'{mean_df.loc[i][col]} $\pm$ {std_df.loc[i][col]}')
     aggr_df = pd.DataFrame(data=aggr)
-    return metrics_df, mean_df, aggr_df
+    aggr_df.to_csv(f'results/{dataset_name}_{model_type}_{s}.csv')
+    return metrics_df, aggr_df
+
+def boxplot(df, dataset, model_type, metric='f1-score', save=False, **kwargs):
+    plt.figure(figsize=(5, 3), dpi=400)
+    sns.boxplot(data=df.sort_values(by='model'),
+                x='model', y='f1-score',
+                width=0.3, **kwargs)
+    plt.grid(axis='y')
+    plt.xlabel('')
+    sns.despine()
+    plt.title(f'{model_type.capitalize()} models CV {metric}s on {dataset.upper()}')
+    plt.xticks(rotation=15)
+    if save:
+        plt.savefig(f'figs/{dataset}_{model_type}_boxplot.eps',
+                    format='eps', bbox_inches='tight')
+    plt.show()

@@ -35,7 +35,7 @@ def expand_for_ts(X_train, X_test):
     X_test = np.array(X_test)[:, np.newaxis, :]
     return X_train, X_test
 
-def get_X_y(df, prefall=1, fall=1, postfall=25.5):
+def get_X_y(df, prefall=1, fall=1, postfall=5):
     X = []
     y = []
     for i, row in df.iterrows():

@@ -1,0 +1,151 @@
+,model,window_size,runtime,precision,recall,f1-score,fold,type,dataset
+0,ExtraTrees,7,0.35,0.82,1.0,0.9,4,Tabular Models,FARSEEING
+1,ExtraTrees,7,0.37,1.0,0.94,0.97,3,Tabular Models,FARSEEING
+2,ExtraTrees,7,0.34,0.86,0.72,0.78,0,Tabular Models,FARSEEING
+3,ExtraTrees,7,0.33,1.0,0.76,0.87,2,Tabular Models,FARSEEING
+4,ExtraTrees,7,0.36,1.0,0.97,0.98,1,Tabular Models,FARSEEING
+5,KNN,7,0.04,0.7,0.5,0.58,4,Tabular Models,FARSEEING
+6,KNN,7,0.04,1.0,0.24,0.38,3,Tabular Models,FARSEEING
+7,KNN,7,0.03,0.8,0.24,0.36,2,Tabular Models,FARSEEING
+8,KNN,7,0.05,0.71,0.3,0.42,0,Tabular Models,FARSEEING
+9,KNN,7,0.03,0.78,0.48,0.6,1,Tabular Models,FARSEEING
+10,LogisticCV,7,16.59,0.94,0.7,0.8,0,Tabular Models,FARSEEING
+11,LogisticCV,7,0.63,0.8,0.71,0.75,2,Tabular Models,FARSEEING
+12,LogisticCV,7,0.62,0.68,0.93,0.79,4,Tabular Models,FARSEEING
+13,LogisticCV,7,0.59,0.89,0.83,0.86,1,Tabular Models,FARSEEING
+14,LogisticCV,7,0.6,1.0,0.82,0.9,3,Tabular Models,FARSEEING
+15,RandomForest,7,1.09,0.79,0.67,0.73,0,Tabular Models,FARSEEING
+16,RandomForest,7,2.7,0.78,1.0,0.88,4,Tabular Models,FARSEEING
+17,RandomForest,7,2.35,0.8,0.94,0.86,3,Tabular Models,FARSEEING
+18,RandomForest,7,2.95,1.0,0.82,0.9,2,Tabular Models,FARSEEING
+19,RandomForest,7,2.7,0.97,0.97,0.97,1,Tabular Models,FARSEEING
+20,RidgeCV,7,0.14,1.0,0.71,0.83,3,Tabular Models,FARSEEING
+21,RidgeCV,7,0.16,1.0,0.59,0.74,2,Tabular Models,FARSEEING
+22,RidgeCV,7,0.18,0.82,0.64,0.72,4,Tabular Models,FARSEEING
+23,RidgeCV,7,0.19,0.98,0.73,0.84,0,Tabular Models,FARSEEING
+24,RidgeCV,7,0.21,1.0,0.76,0.86,1,Tabular Models,FARSEEING
+25,Catch22,7,3.39,0.91,0.72,0.8,0,Time Series Models,FARSEEING
+26,Catch22,7,5.0,0.67,0.59,0.62,3,Time Series Models,FARSEEING
+27,Catch22,7,5.04,0.84,0.93,0.89,1,Time Series Models,FARSEEING
+28,Catch22,7,4.2,0.93,0.76,0.84,2,Time Series Models,FARSEEING
+29,Catch22,7,5.0,0.56,0.71,0.62,4,Time Series Models,FARSEEING
+30,Hydra,7,5.8,0.93,0.84,0.88,0,Time Series Models,FARSEEING
+31,Hydra,7,6.13,0.81,0.93,0.87,4,Time Series Models,FARSEEING
+32,Hydra,7,5.94,0.72,0.97,0.82,1,Time Series Models,FARSEEING
+33,Hydra,7,5.66,1.0,0.94,0.97,3,Time Series Models,FARSEEING
+34,Hydra,7,6.61,0.94,0.94,0.94,2,Time Series Models,FARSEEING
+35,MultiRocketHydra,7,8.66,0.95,0.84,0.89,0,Time Series Models,FARSEEING
+36,MultiRocketHydra,7,9.04,0.93,0.93,0.93,1,Time Series Models,FARSEEING
+37,MultiRocketHydra,7,9.72,0.94,0.88,0.91,2,Time Series Models,FARSEEING
+38,MultiRocketHydra,7,8.7,0.94,0.94,0.94,3,Time Series Models,FARSEEING
+39,MultiRocketHydra,7,9.09,0.76,0.93,0.84,4,Time Series Models,FARSEEING
+40,QUANT,7,5.45,0.88,1.0,0.94,1,Time Series Models,FARSEEING
+41,QUANT,7,5.68,0.93,0.82,0.88,2,Time Series Models,FARSEEING
+42,QUANT,7,3.59,0.96,0.79,0.87,0,Time Series Models,FARSEEING
+43,QUANT,7,4.86,1.0,0.94,0.97,3,Time Series Models,FARSEEING
+44,QUANT,7,5.24,0.81,0.93,0.87,4,Time Series Models,FARSEEING
+45,Rocket,7,2.64,0.93,0.82,0.88,3,Time Series Models,FARSEEING
+46,Rocket,7,2.66,0.83,0.86,0.85,1,Time Series Models,FARSEEING
+47,Rocket,7,2.83,0.72,0.93,0.81,4,Time Series Models,FARSEEING
+48,Rocket,7,2.28,0.91,0.73,0.81,0,Time Series Models,FARSEEING
+49,Rocket,7,3.06,1.0,0.76,0.87,2,Time Series Models,FARSEEING
+50,ExtraTrees,7,0.36,0.9,0.96,0.93,4,Tabular Models,FallAllD
+51,ExtraTrees,7,0.36,0.9,0.9,0.9,3,Tabular Models,FallAllD
+52,ExtraTrees,7,0.36,0.99,0.76,0.86,0,Tabular Models,FallAllD
+53,ExtraTrees,7,0.36,0.92,0.89,0.91,2,Tabular Models,FallAllD
+54,ExtraTrees,7,0.33,0.84,0.79,0.82,1,Tabular Models,FallAllD
+55,KNN,7,0.09,0.93,0.48,0.63,4,Tabular Models,FallAllD
+56,KNN,7,0.09,0.67,0.06,0.12,3,Tabular Models,FallAllD
+57,KNN,7,0.1,0.81,0.2,0.33,2,Tabular Models,FallAllD
+58,KNN,7,0.12,0.62,0.1,0.17,0,Tabular Models,FallAllD
+59,KNN,7,0.1,0.67,0.12,0.2,1,Tabular Models,FallAllD
+60,LogisticCV,7,17.29,0.98,0.63,0.77,0,Tabular Models,FallAllD
+61,LogisticCV,7,1.32,0.9,0.84,0.87,2,Tabular Models,FallAllD
+62,LogisticCV,7,1.29,0.9,0.96,0.93,4,Tabular Models,FallAllD
+63,LogisticCV,7,1.46,0.79,0.65,0.71,1,Tabular Models,FallAllD
+64,LogisticCV,7,1.57,0.96,0.71,0.81,3,Tabular Models,FallAllD
+65,RandomForest,7,3.99,0.99,0.72,0.83,0,Tabular Models,FallAllD
+66,RandomForest,7,3.79,0.89,0.96,0.92,4,Tabular Models,FallAllD
+67,RandomForest,7,4.23,0.87,0.87,0.87,3,Tabular Models,FallAllD
+68,RandomForest,7,3.85,0.9,0.92,0.91,2,Tabular Models,FallAllD
+69,RandomForest,7,4.09,0.82,0.79,0.81,1,Tabular Models,FallAllD
+70,RidgeCV,7,0.74,0.96,0.71,0.81,3,Tabular Models,FallAllD
+71,RidgeCV,7,0.73,0.9,0.75,0.82,2,Tabular Models,FallAllD
+72,RidgeCV,7,0.75,0.94,0.94,0.94,4,Tabular Models,FallAllD
+73,RidgeCV,7,0.78,0.98,0.53,0.69,0,Tabular Models,FallAllD
+74,RidgeCV,7,0.99,0.83,0.44,0.58,1,Tabular Models,FallAllD
+75,Catch22,7,8.41,0.96,0.8,0.87,0,Time Series Models,FallAllD
+76,Catch22,7,10.07,0.93,0.84,0.88,3,Time Series Models,FallAllD
+77,Catch22,7,9.58,0.83,0.88,0.86,1,Time Series Models,FallAllD
+78,Catch22,7,12.37,0.87,0.92,0.89,2,Time Series Models,FallAllD
+79,Catch22,7,13.39,0.89,0.94,0.92,4,Time Series Models,FallAllD
+80,Hydra,7,22.58,0.98,0.84,0.91,0,Time Series Models,FallAllD
+81,Hydra,7,22.73,0.98,1.0,0.99,4,Time Series Models,FallAllD
+82,Hydra,7,22.77,0.93,0.74,0.82,1,Time Series Models,FallAllD
+83,Hydra,7,22.73,0.9,0.9,0.9,3,Time Series Models,FallAllD
+84,Hydra,7,22.75,0.79,0.93,0.85,2,Time Series Models,FallAllD
+85,MultiRocketHydra,7,27.26,0.98,0.88,0.93,0,Time Series Models,FallAllD
+86,MultiRocketHydra,7,27.34,0.94,0.88,0.91,1,Time Series Models,FallAllD
+87,MultiRocketHydra,7,27.66,0.91,0.99,0.95,2,Time Series Models,FallAllD
+88,MultiRocketHydra,7,27.4,1.0,0.9,0.95,3,Time Series Models,FallAllD
+89,MultiRocketHydra,7,27.44,0.95,1.0,0.98,4,Time Series Models,FallAllD
+90,QUANT,7,20.02,0.94,0.88,0.91,1,Time Series Models,FallAllD
+91,QUANT,7,18.61,0.83,0.98,0.9,2,Time Series Models,FallAllD
+92,QUANT,7,18.8,0.97,0.85,0.91,0,Time Series Models,FallAllD
+93,QUANT,7,20.76,1.0,0.87,0.93,3,Time Series Models,FallAllD
+94,QUANT,7,19.59,0.95,0.98,0.96,4,Time Series Models,FallAllD
+95,Rocket,7,6.5,0.83,0.97,0.9,3,Time Series Models,FallAllD
+96,Rocket,7,6.5,0.96,0.74,0.83,1,Time Series Models,FallAllD
+97,Rocket,7,6.29,0.95,0.99,0.97,4,Time Series Models,FallAllD
+98,Rocket,7,6.5,0.98,0.83,0.89,0,Time Series Models,FallAllD
+99,Rocket,7,6.51,0.91,0.95,0.93,2,Time Series Models,FallAllD
+100,ExtraTrees,7,0.83,0.0,0.0,0.0,4,Tabular Models,SisFall
+101,ExtraTrees,7,0.83,0.69,0.56,0.62,3,Tabular Models,SisFall
+102,ExtraTrees,7,0.85,0.88,0.69,0.78,0,Tabular Models,SisFall
+103,ExtraTrees,7,0.82,0.94,0.8,0.87,2,Tabular Models,SisFall
+104,ExtraTrees,7,0.84,0.99,0.79,0.88,1,Tabular Models,SisFall
+105,KNN,7,0.72,0.0,0.0,0.0,4,Tabular Models,SisFall
+106,KNN,7,0.73,0.67,0.42,0.51,3,Tabular Models,SisFall
+107,KNN,7,0.88,0.87,0.84,0.85,2,Tabular Models,SisFall
+108,KNN,7,0.88,0.92,0.72,0.81,0,Tabular Models,SisFall
+109,KNN,7,0.88,0.96,0.74,0.84,1,Tabular Models,SisFall
+110,LogisticCV,7,12.24,0.0,0.0,0.0,0,Tabular Models,SisFall
+111,LogisticCV,7,32.98,0.75,0.15,0.25,2,Tabular Models,SisFall
+112,LogisticCV,7,12.95,0.0,0.0,0.0,4,Tabular Models,SisFall
+113,LogisticCV,7,14.84,0.9,0.11,0.2,1,Tabular Models,SisFall
+114,LogisticCV,7,15.27,0.24,0.08,0.12,3,Tabular Models,SisFall
+115,RandomForest,7,43.84,0.89,0.64,0.75,0,Tabular Models,SisFall
+116,RandomForest,7,47.46,0.0,0.0,0.0,4,Tabular Models,SisFall
+117,RandomForest,7,47.71,0.63,0.55,0.58,3,Tabular Models,SisFall
+118,RandomForest,7,43.09,0.95,0.71,0.81,2,Tabular Models,SisFall
+119,RandomForest,7,42.99,0.95,0.71,0.81,1,Tabular Models,SisFall
+120,RidgeCV,7,1.59,0.0,0.0,0.0,3,Tabular Models,SisFall
+121,RidgeCV,7,1.58,1.0,0.02,0.04,2,Tabular Models,SisFall
+122,RidgeCV,7,1.56,0.0,0.0,0.0,4,Tabular Models,SisFall
+123,RidgeCV,7,1.58,0.0,0.0,0.0,0,Tabular Models,SisFall
+124,RidgeCV,7,1.66,1.0,0.01,0.02,1,Tabular Models,SisFall
+125,Catch22,7,87.44,0.98,0.87,0.92,0,Time Series Models,SisFall
+126,Catch22,7,82.99,0.85,0.6,0.71,3,Time Series Models,SisFall
+127,Catch22,7,85.36,0.99,0.97,0.98,1,Time Series Models,SisFall
+128,Catch22,7,86.45,0.84,0.99,0.91,2,Time Series Models,SisFall
+129,Catch22,7,87.73,0.0,0.0,0.0,4,Time Series Models,SisFall
+130,Hydra,7,131.0,1.0,0.94,0.97,0,Time Series Models,SisFall
+131,Hydra,7,133.41,0.0,0.0,0.0,4,Time Series Models,SisFall
+132,Hydra,7,131.3,1.0,0.99,1.0,1,Time Series Models,SisFall
+133,Hydra,7,131.95,0.87,0.64,0.74,3,Time Series Models,SisFall
+134,Hydra,7,132.1,0.96,1.0,0.98,2,Time Series Models,SisFall
+135,MultiRocketHydra,7,184.46,0.0,0.0,0.0,4,Time Series Models,SisFall
+136,MultiRocketHydra,7,183.15,0.93,0.73,0.82,3,Time Series Models,SisFall
+137,MultiRocketHydra,7,181.29,0.99,0.99,0.99,2,Time Series Models,SisFall
+138,MultiRocketHydra,7,175.6,1.0,1.0,1.0,1,Time Series Models,SisFall
+139,MultiRocketHydra,7,178.16,1.0,0.9,0.95,0,Time Series Models,SisFall
+140,QUANT,7,140.89,1.0,0.98,0.99,1,Time Series Models,SisFall
+141,QUANT,7,148.04,0.98,1.0,0.99,2,Time Series Models,SisFall
+142,QUANT,7,121.83,0.98,0.89,0.93,0,Time Series Models,SisFall
+143,QUANT,7,138.69,0.97,0.69,0.8,3,Time Series Models,SisFall
+144,QUANT,7,151.35,0.0,0.0,0.0,4,Time Series Models,SisFall
+145,Rocket,7,78.59,0.89,0.69,0.78,3,Time Series Models,SisFall
+146,Rocket,7,73.43,0.99,0.98,0.99,1,Time Series Models,SisFall
+147,Rocket,7,82.12,0.0,0.0,0.0,4,Time Series Models,SisFall
+148,Rocket,7,75.33,1.0,0.89,0.94,0,Time Series Models,SisFall
+149,Rocket,7,77.73,0.95,0.98,0.97,2,Time Series Models,SisFall

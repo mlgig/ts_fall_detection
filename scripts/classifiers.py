@@ -1,5 +1,5 @@
 import timeit
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 import numpy as np, pandas as pd
 from scipy.signal import resample
 from scipy.signal import savgol_filter
@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt, seaborn as sns
 sns.set_style("ticks")
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from scripts import farseeing, fallalld, sisfall
+from scripts import farseeing, fallalld, sisfall, utils
+from scripts.utils import get_freq
 
 from sklearn.linear_model import RidgeClassifierCV, RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -76,7 +77,7 @@ def get_models(type=None, models_subset=None):
 def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=None):
     models = get_models(type=type, models_subset=subset)
     metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score'])
-    for model in models.items():
+    for model in tqdm(models.items()):
         metrics = predict_eval(model, s, freq, X_in=(X_train, X_test),
                                y_in=(y_train, y_test))
         these_metrics = pd.DataFrame(data=metrics)
@@ -121,11 +122,9 @@ def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_thr
         y_train, y_test = y_in
     X_train = X_train[:, :win_size]
     X_test = X_test[:, :win_size]
-    # print(f'(w={s})', end=': ')
-    print(f'{model_name}', end=' ')
+    clf.fit(X_train, y_train)
     if starttime is None:
         starttime = timeit.default_timer()
-    clf.fit(X_train, y_train)
     if has_proba:
         probs = clf.predict_proba(X_test)[:, 1]
         train_probs = clf.predict_proba(X_train)[:, 1]
@@ -143,9 +142,9 @@ def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_thr
         y_pred = to_labels(probs, thresholds[ix])
     else:
         y_pred = clf.predict(X_test)
-    runtime = timeit.default_timer() - starttime
-    precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average='binary')
-    print(f'({np.round(runtime,2)}s)', end='. ')
+    runtime = (timeit.default_timer() - starttime)/X_test.shape[0]
+    runtime = np.round(runtime * 1000) # milliseconds (ms)
+    precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average='binary', zero_division=1)
     if verbose > 1:
         if has_proba:
             print(f'AUC: {np.round(roc_auc_score(y_test, probs), 2)}')
@@ -174,28 +173,22 @@ def chunk_list(l, n):
             break
         yield chunk
 
-def get_freq(dataset):
-    if dataset==farseeing:
-        return 100
-    elif dataset==fallalld:
-        return 238
-    else:
-        return 200
-
 def get_dataset_name(dataset):
     names = {
-        farseeing: 'farseeing',
-        fallalld: 'fallalld',
-        sisfall: 'sisfall'
+        farseeing: 'FARSEEING',
+        fallalld: 'FallAllD',
+        sisfall: 'SisFall'
     }
     return names[dataset]
 
 def cross_validate(dataset, model_type=None, models_subset=None,
-                   s=7, cv=5, df=None, verbose=True):
+                   s=7, cv=5, df=None, verbose=True, random_state=0):
     dataset_name = get_dataset_name(dataset)
     if df is None:
         df = dataset.load()
+    rng = np.random.default_rng(random_state)
     subjects = list(df['SubjectID'].unique())
+    rng.shuffle(subjects)
     # divide subjects into cv sets
     test_sets = list(chunk_list(subjects, cv))
     freq = get_freq(dataset)
@@ -251,3 +244,31 @@ def boxplot(df, dataset, model_type, metric='f1-score', save=False, **kwargs):
         plt.savefig(f'figs/{dataset}_{model_type}_boxplot.eps',
                     format='eps', bbox_inches='tight')
     plt.show()
+
+
+def cross_dataset_eval(d1, d2):
+    # resample to the lower frequency
+    new_freq = min(get_freq(d1), get_freq(d2))
+    X_d1, y_d1 = utils.train_test_subjects_split(d1, clip=d1!=farseeing, new_freq=new_freq, split=False)
+    
+    X_d2, y_d2 = utils.train_test_subjects_split(d2, clip=d2!=farseeing, new_freq=new_freq, split=False)
+
+    print(f'<----- {get_dataset_name(d1)} > {get_dataset_name(d2)} ----->')
+    d1d2_df, _ = run_models(X_d1, y_d1, X_d2, y_d2, freq=new_freq, type='ts')
+    d1d2_df['scenario'] = f'{get_dataset_name(d1)}>{get_dataset_name(d2)}'
+    print(f'<----- {get_dataset_name(d2)} > {get_dataset_name(d1)} ----->')
+    d2d1_df, _ = run_models(X_d2, y_d2, X_d1, y_d1, freq=new_freq, type='ts')
+    d2d1_df['scenario'] = f'{get_dataset_name(d2)}>{get_dataset_name(d1)}'
+
+    # Mix all and train_test_split
+    X = np.concatenate([X_d1, X_d2], axis=0)
+    y = np.concatenate([y_d1, y_d2], axis=0)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.33, random_state=0)
+
+    print(f'<----- {get_dataset_name(d1)} + {get_dataset_name(d2)} ----->')
+    mixed_df, _ = run_models(X_train, y_train, X_test, y_test, freq=new_freq, type='ts')
+    mixed_df['scenario'] = f'{get_dataset_name(d1)}+{get_dataset_name(d2)}'
+
+    return pd.concat([d1d2_df, d2d1_df, mixed_df], ignore_index=True)

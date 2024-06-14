@@ -1,11 +1,12 @@
 # import pywt
 import numpy as np
+import pandas as pd
 from math import sqrt
 import matplotlib.pyplot as plt
 from scipy.signal import resample
 from sklearn.metrics import f1_score
 import time, timeit
-from sklearn.model_selection import train_test_split as tts
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
@@ -13,6 +14,7 @@ from sklearn.metrics import ConfusionMatrixDisplay
 
 from sklearn.preprocessing import LabelEncoder
 from torch.utils import data
+from scripts import farseeing, fallalld, sisfall
 
 
 # apply threshold to positive probabilities to create labels
@@ -214,65 +216,54 @@ def visualize_falls_adls(X, y, dataset="train", save=True):
                     bbox_inches='tight')
     plt.show()
 
-############# from Davide #################
-def gen_cube(instance):
-    result = []
-    for i in range(len(instance)):
-        result.append([instance[(i+j)%len(instance)] for j in range(len(instance))])
-    return result
+def resample_to(arr, old_f, new_f=100):
+    new_list = []
+    old_len = arr.shape[-1]
+    for sample in arr:
+        resampled = resample(sample, int(new_f*(old_len/old_f)))
+        new_list.append(resampled)
+    new_arr = np.array(new_list)
+    return new_arr
 
-def one_hot_encoding(train_labels,test_labels):
-    enc = LabelEncoder()
-    y_train = enc.fit_transform(train_labels)
-    y_test = enc.transform(test_labels)
+def get_freq(dataset):
+    if dataset==farseeing:
+        return 100
+    elif dataset==fallalld:
+        return 238
+    else:
+        return 200
 
-    return y_train,y_test,enc
-
-
-
-def pre_fature_normalization(X_train,X_test):
-    eps = 1e-6
-    f_mean = X_train.mean(axis=0, keepdims=True)
-    f_std = X_train.std(axis=0, keepdims=True) + eps  # epsilon to avoid dividing by 0
-    X_train_tfm2 = (X_train - f_mean) / f_std
-    X_test_tfm2 = (X_test - f_mean) / f_std
-    return  X_train_tfm2,X_test_tfm2
-
-
-def plot_dCAM( instance, dcam, nb_dim, idx ):
-    plt.figure(figsize=(20,5))
-    plt.title('multivariate data series')
-    for i in range(len(instance)):
-        plt.subplot(len(instance),1,1+i)
-        plt.plot(instance[i])
-        plt.xlim(0,len(instance[i]))
-        plt.yticks([0],["Dim {}".format(i)])
-
-    plt.figure(figsize=(20,5))
-    #plt.title('dCAM')
-    plt.imshow(dcam,aspect='auto',interpolation=None)
-    plt.yticks(list(range(nb_dim)), ["Dim {}".format(i) for i in range(nb_dim)])
-    plt.savefig("tmp/"+str(idx)+".png")
-    #plt.colorbar(img)
-
-
-def minMax_normalization(X, epsillon=0.0000000001):
-    #X  = np.abs(X)
-    zeros = np.zeros(shape=X.shape)
-    X = np.maximum(X,zeros)
-    X = (X - X.min() ) / ( (X.max() - X.min())  + epsillon)
-    return X
-
-class MyDataset(data.Dataset):
-
-    def __init__(self,X,y):
-        super().__init__()
-        self.X = X
-        self.y = y
-
-    def __len__(self):
-        return self.X.shape[0]
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-############# from Davide #################
+def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=False, clip=False, new_freq=None, split=True):
+    df = dataset.load(clip=clip)
+    subjects = df['SubjectID'].unique()
+    # print(f'{len(subjects)} subjects')
+    if split==False:
+        X, y = dataset.get_X_y(df)
+        if new_freq is not None and new_freq!=get_freq(dataset):
+            X = resample_to(X, old_f=get_freq(dataset),
+                            new_f=new_freq)
+        return X, y
+    else:
+        train_set, test_set = train_test_split(subjects, test_size=test_size, random_state=random_state)
+        test_df = df[df['SubjectID']==test_set[0]]
+        df.drop(df[df['SubjectID']==test_set[0]].index, inplace=True)
+        for id in test_set[1:]:
+            this_df = df[df['SubjectID']==id]
+            test_df = pd.concat([test_df, this_df], ignore_index=True)
+            df.drop(this_df.index, inplace=True)
+            df.reset_index().drop(columns=['index'], inplace=True)
+        X_train, y_train = dataset.get_X_y(df)
+        X_test, y_test = dataset.get_X_y(test_df)
+        if resample:
+            X_train = resample_to(X, old_f=get_freq(dataset),
+                                  new_f=new_freq)
+            X_test = resample_to(X, old_f=get_freq(dataset),
+                                 new_f=new_freq)
+        print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
+        ([ADLs, Falls])", np.bincount(y_train))
+        print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
+        ([ADLs, Falls])", np.bincount(y_test))
+        if visualize:
+            visualize_falls_adls(X_train, y_train)
+            visualize_falls_adls(X_test, y_test, dataset="test")
+        return X_train, X_test, y_train, y_test

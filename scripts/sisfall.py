@@ -3,17 +3,23 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.signal import resample
-from scripts.utils import magnitude, visualize_falls_adls
+from scripts.utils import magnitude, visualize_falls_adls, resample_to
 from sklearn.model_selection import train_test_split
 
-def load():
+def load(clip=False):
     # sisfall = pd.read_pickle(r'data/SisFall.pkl')
     sisfall = pd.read_pickle(r'data/SisFall_MMA8451Q.pkl').reset_index().drop(columns=['index'])
     sisfall.drop(columns=['TrialNo'], inplace=True)
-    sisfall['accel_g'] = sisfall['Acc'].apply(get_g).apply(magnitude)
+    sisfall['accel_g'] = sisfall['Acc'].apply(get_g)
+    if clip:
+        sisfall['accel_g'] = sisfall['accel_g'].apply(clip_arr)
+    sisfall['accel_g'] = sisfall['accel_g'].apply(magnitude)
     sisfall = sisfall[sisfall['Duration (s)'] > 12]
+    sisfall.drop(columns=['Acc'], inplace=True)
     return sisfall
 
+def clip_arr(arr):
+    return np.clip(arr, -2,2)
 
 def get_g(arr):
     # Acceleration [g]: [(2*Range)/(2^Resolution)]*AD
@@ -58,26 +64,29 @@ def get_X_y(df, freq=200):
     y = np.array(y, dtype='uint8')
     return X, y
 
-def train_test_subjects_split(test_size=0.3, random_state=0, visualize=True):
-    df = load()
-    df.drop(columns=['Acc'], inplace=True)
-    subjects = df['SubjectID'].unique()
-    print(f'{len(subjects)} subjects')
-    train_set, test_set = train_test_split(subjects, test_size=test_size, random_state=random_state)
-    test_df = df[df['SubjectID']==test_set[0]]
-    df.drop(df[df['SubjectID']==test_set[0]].index, inplace=True)
-    for id in test_set[1:]:
-        this_df = df[df['SubjectID']==id]
-        test_df = pd.concat([test_df, this_df], ignore_index=True)
-        df.drop(this_df.index, inplace=True)
-        df.reset_index().drop(columns=['index'], inplace=True)
-    X_train, y_train = get_X_y(df)
-    X_test, y_test = get_X_y(test_df)
-    print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
-    ([ADLs, Falls])", np.bincount(y_train))
-    print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
-    ([ADLs, Falls])", np.bincount(y_test))
-    if visualize:
-        visualize_falls_adls(X_train, y_train)
-        visualize_falls_adls(X_test, y_test, set="test")
-    return X_train, y_train, X_test, y_test
+# def train_test_subjects_split(test_size=0.3, random_state=0, visualize=False, clip=False, resample=False):
+#     df = load(clip=clip)
+#     df.drop(columns=['Acc'], inplace=True)
+#     subjects = df['SubjectID'].unique()
+#     print(f'{len(subjects)} subjects')
+#     train_set, test_set = train_test_split(subjects, test_size=test_size, random_state=random_state)
+#     test_df = df[df['SubjectID']==test_set[0]]
+#     df.drop(df[df['SubjectID']==test_set[0]].index, inplace=True)
+#     for id in test_set[1:]:
+#         this_df = df[df['SubjectID']==id]
+#         test_df = pd.concat([test_df, this_df], ignore_index=True)
+#         df.drop(this_df.index, inplace=True)
+#         df.reset_index().drop(columns=['index'], inplace=True)
+#     X_train, y_train = get_X_y(df)
+#     X_test, y_test = get_X_y(test_df)
+#     if resample:
+#          X_train = resample_to(X_train, old_f=200, new_f=100)
+#          X_test = resample_to(X_test, old_f=200, new_f=100)
+#     print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
+#     ([ADLs, Falls])", np.bincount(y_train))
+#     print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
+#     ([ADLs, Falls])", np.bincount(y_test))
+#     if visualize:
+#         visualize_falls_adls(X_train, y_train)
+#         visualize_falls_adls(X_test, y_test, dataset="test")
+#     return X_train, y_train, X_test, y_test

@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy.signal import resample
-from scripts.utils import magnitude, visualize_falls_adls, resample_to
+from scripts import utils
 from sklearn.model_selection import train_test_split
 
 def load(clip=False):
@@ -20,7 +19,7 @@ def load(clip=False):
     fallalld_waist.drop(fallalld_waist[fallalld_waist['target']>1].index, inplace=True)
     fallalld_waist.drop(columns=['Gyr', 'Mag', 'Bar', 'TrialNo', 'Device'], inplace=True)
     fallalld_waist['accel_g'] = fallalld_waist['Acc'].apply(
-         g_from_LSB).apply(magnitude).apply(reshape_arr)
+         g_from_LSB).apply(utils.magnitude).apply(reshape_arr)
     if clip:
          fallalld_waist['accel_g'] = fallalld_waist['accel_g'].apply(clip_arr)
     fallalld_waist.drop(columns=['Acc'], inplace=True)
@@ -48,30 +47,3 @@ def get_X_y(df, winsize=7, clip=True):
         X[i] = row[:, start:end]
     y = np.array(df['target'], dtype='uint8')
     return X, y
-
-# def train_test_subjects_split(test_size=0.3, random_state=0, visualize=False, clip=False, resample=False, split=True):
-#     df = load(clip=clip)
-#     df.drop(columns=['Acc'], inplace=True)
-#     subjects = df['SubjectID'].unique()
-#     print(f'{len(subjects)} subjects')
-#     train_set, test_set = train_test_split(subjects, test_size=test_size, random_state=random_state)
-#     test_df = df[df['SubjectID']==test_set[0]]
-#     df.drop(df[df['SubjectID']==test_set[0]].index, inplace=True)
-#     for id in test_set[1:]:
-#         this_df = df[df['SubjectID']==id]
-#         test_df = pd.concat([test_df, this_df], ignore_index=True)
-#         df.drop(this_df.index, inplace=True)
-#         df.reset_index().drop(columns=['index'], inplace=True)
-#     X_train, y_train = get_X_y(df)
-#     X_test, y_test = get_X_y(test_df)
-#     if resample:
-#          X_train = resample_to(X_train, old_f=238, new_f=100)
-#          X_test = resample_to(X_test, old_f=238, new_f=100)
-#     print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
-#     ([ADLs, Falls])", np.bincount(y_train))
-#     print(f"Test set: X: {X_test.shape}, y: {y_test.shape}\
-#     ([ADLs, Falls])", np.bincount(y_test))
-#     if visualize:
-#         visualize_falls_adls(X_train, y_train)
-#         visualize_falls_adls(X_test, y_test, dataset="test")
-#     return X_train, y_train, X_test, y_test

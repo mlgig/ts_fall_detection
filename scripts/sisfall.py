@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy.signal import resample
-from scripts.utils import magnitude, visualize_falls_adls, resample_to
+from scripts import utils
 from sklearn.model_selection import train_test_split
 
 def load(clip=False):
@@ -13,7 +12,7 @@ def load(clip=False):
     sisfall['accel_g'] = sisfall['Acc'].apply(get_g)
     if clip:
         sisfall['accel_g'] = sisfall['accel_g'].apply(clip_arr)
-    sisfall['accel_g'] = sisfall['accel_g'].apply(magnitude)
+    sisfall['accel_g'] = sisfall['accel_g'].apply(utils.magnitude)
     sisfall = sisfall[sisfall['Duration (s)'] > 12]
     sisfall.drop(columns=['Acc'], inplace=True)
     return sisfall

@@ -1,8 +1,12 @@
 # import pywt
+from cProfile import label
 import numpy as np
 import pandas as pd
-from math import sqrt
+from math import isnan, sqrt
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+from matplotlib.colors import LinearSegmentedColormap
+import seaborn as sns
 from scipy.signal import resample
 from sklearn.metrics import f1_score
 import time, timeit
@@ -12,7 +16,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 from sklearn.metrics import ConfusionMatrixDisplay
 
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import scale
 from torch.utils import data
 from scripts import farseeing, fallalld, sisfall
 
@@ -60,79 +64,6 @@ def predict_eval(model, X_in=None, y_in=None, starttime=None, adapt_threshold=Fa
     plt.grid(False)
     plt.show()
     print(classification_report(y_test, y_pred, target_names=target_names))
-
-def point_line_distance(line, p):
-    """Calculates the distance between a point and a line defined by two points.
-
-    Args:
-    line => p1, p2
-        p1: First point on the line (tuple or list).
-        p2: Second point on the line (tuple or list).
-    p: The point to find the distance from (tuple or list).
-
-    Returns:
-    The distance between the point and the line.
-    """
-    p1, p2 = line
-    x1, y1 = p1
-    x2, y2 = p2
-    x3, y3 = p.T
-    # Distance from (p3) to the line defined by (p1) and (p2)
-    numerator = abs((y2 - y1) * x3 - (x2 - x1) * y3 + x2 * y1 - y2 * x1)
-    denominator = sqrt((y2 - y1)**2 + (x2 - x1)**2)
-    return numerator / denominator
-
-def get_pips(y, k=None, visualize=True, **kwargs):
-    # set k to half the length of y by default
-    if k is None:
-        k = max(3, int(len(y)/2))
-    assert k > 2, "k must be greater than 2"
-    default_kwargs = {
-        'xlabel': '', 'ylabel': '',
-        'figsize': (10,3),
-        'dpi': 150,
-        'title': 'Perceptually Important Points'
-    }
-    kwargs = {**default_kwargs, **kwargs}
-    x = np.arange(0, len(y)).reshape(-1,1)
-    y_arr = np.array(y).reshape(-1,1)
-    points = np.concatenate([x, y_arr], axis=1)
-    line = (0, len(y)-1) # initial line
-    pips = find_pips(points, line, k)
-    pips.sort()
-    if visualize:
-        visualize_pips(y, pips, **kwargs)
-    return y[pips]
-
-def visualize_pips(y, pips, **kwargs):
-    plt.figure(figsize=kwargs['figsize'], dpi=kwargs['dpi'])
-    plt.plot(y, label='Time Series')
-    plt.plot(pips, y[pips], 'x', label='PIPs')
-    plt.xlabel(kwargs['xlabel'])
-    plt.ylabel(kwargs['ylabel'])
-    plt.title(kwargs['title'])
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-def find_pips(points, line, k, pips_list=None):
-    if pips_list is None: 
-        pips_list = [0, len(points)-1] # initial pips
-    # select split point
-    window = points[line[0]:line[1]]
-    if len(pips_list) <= k and len(window) > 2:
-        line_coords = (points[line[0]], points[line[1]])
-        distances_arr = point_line_distance(line_coords, window)
-        new_pip = np.argmax(distances_arr)
-        pips_list.append(new_pip)
-        # make new lines
-        left_line = (line[0], new_pip)
-        right_line = (new_pip, line[1])
-        left_is_longer = len(left_line) >= len(right_line)
-        new_line = left_line if left_is_longer else right_line
-        return find_pips(points, new_line, k, pips_list)
-    else:
-        return pips_list
 
 def get_windows(X_train, X_test, y_train, y_test,
     ts, freq, target, thresh=1.08, step=1, test=False, pip=False,
@@ -191,6 +122,47 @@ def visualize_samples(X_train, y_train, X_test, y_test, dataset):
     y = np.vstack(y_train, y_test)
     visualize_falls_adls(X, y, dataset=dataset)
 
+def colorlist2(c1, c2, num):
+    l = np.linspace(0, 1, num)
+    a = np.abs(np.array(c1) - np.array(c2))
+    m = np.min([c1, c2], axis=0)
+    s = np.sign(np.array(c2) - np.array(c1)).astype(int)
+    s[s == 0] = 1
+    r = np.sqrt(np.c_[(l * a[0] + m[0])[::s[0]],
+                      (l * a[1] + m[1])[::s[1]], (l * a[2] + m[2])[::s[2]]])
+    return r
+
+def color_plot(x, y):
+    ynorm = (y - y.min()) / (y.max() - y.min())
+    cmap = LinearSegmentedColormap.from_list(
+        "", colorlist2((1, 0, 0), (0, 0, 1), 100))
+    colors = [cmap(k) for k in ynorm[:-1]]
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-2], points[1:-1], points[2:]], axis=1)
+    lc = LineCollection(segments, colors=colors, linewidth=2)
+    lc.set_array(x)
+    return lc
+
+def plot_all_samples(X, ax, freq=100):
+    X = np.squeeze(X) if X.ndim > 2 else X
+    # X = np.nan_to_num(X)
+    # if X.min() != -1:
+    #     X = scale(X)
+    ax.plot(X.T, color='lightblue', alpha=0.5)
+    # lc = color_plot(x, mean_vals)
+    mean_vals = X.mean(axis=0)
+    # x = np.arange(len(mean_vals))
+    # tiled = np.tile(mean_vals, (400,1))
+    # print(tiled.min(), tiled.max())
+    # print(tiled)
+    # norm = plt.Normalize(-1, 1)
+    # im = ax.imshow(tiled, cmap='coolwarm', alpha=0.5, norm=norm)
+    # ax.imshow(tiled, cmap='coolwarm', alpha=0.5, norm=norm)
+    ax.plot(mean_vals, color='blue', label='mean attribution profile')
+    # ax.add_collection(lc)
+    # ax.autoscale()
+    # plt.show()
+    # return im
 
 def visualize_falls_adls(X, y, dataset="train", save=True):
     fig, axs = plt.subplots(1, 2, figsize=(6, 2), dpi=200,
@@ -201,15 +173,12 @@ def visualize_falls_adls(X, y, dataset="train", save=True):
     fallers = y.astype(bool)
     falls = X[fallers]
     adls = X[fallers == False]
-    axs[0].plot(adls.T, color='lightblue')
-    axs[0].plot(adls.mean(axis=0), color='blue', label='mean sample')
+    plot_all_samples(adls, ax=axs[0])
     axs[0].set_title('ADL samples')
     axs[0].set_ylabel('Accel magnitude (g)')
     
-    axs[1].plot(falls.T, color='lightblue')
-    axs[1].plot(falls.mean(axis=0), color='blue', label='mean sample')
+    plot_all_samples(falls, ax=axs[1])
     axs[1].set_title('Fall samples')
-    fig.suptitle(f"Mean ADLs and fall samples in the {dataset} dataset")
     axs[1].legend()
     if save:
         plt.savefig(f'figs/{dataset}_mean_samples.eps', format='eps',
@@ -236,10 +205,10 @@ def get_freq(dataset):
 def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=False, clip=False, new_freq=None, split=True):
     df = dataset.load(clip=clip)
     subjects = df['SubjectID'].unique()
-    # print(f'{len(subjects)} subjects')
+    resample = new_freq is not None and new_freq!=get_freq(dataset)
     if split==False:
         X, y = dataset.get_X_y(df)
-        if new_freq is not None and new_freq!=get_freq(dataset):
+        if resample:
             X = resample_to(X, old_f=get_freq(dataset),
                             new_f=new_freq)
         return X, y
@@ -255,9 +224,9 @@ def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=
         X_train, y_train = dataset.get_X_y(df)
         X_test, y_test = dataset.get_X_y(test_df)
         if resample:
-            X_train = resample_to(X, old_f=get_freq(dataset),
+            X_train = resample_to(X_train, old_f=get_freq(dataset),
                                   new_f=new_freq)
-            X_test = resample_to(X, old_f=get_freq(dataset),
+            X_test = resample_to(X_test, old_f=get_freq(dataset),
                                  new_f=new_freq)
         print(f"Train set: X: {X_train.shape}, y: {y_train.shape}\
         ([ADLs, Falls])", np.bincount(y_train))

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from scripts import utils
 from sklearn.model_selection import train_test_split
 
@@ -14,8 +15,25 @@ def load(clip=False):
         sisfall['accel_g'] = sisfall['accel_g'].apply(clip_arr)
     sisfall['accel_g'] = sisfall['accel_g'].apply(utils.magnitude)
     sisfall = sisfall[sisfall['Duration (s)'] > 12]
-    sisfall.drop(columns=['Acc'], inplace=True)
     return sisfall
+
+def plot_sample(df):
+    adl_sample = get_g(df[df['Target']==0].loc[8].Acc)
+    fall_sample = get_g(df[df['Target']==1].loc[79].Acc)
+    fig, axs = plt.subplots(1,2, figsize=(8,3), dpi=400, sharey=True,layout='tight')
+    axs[0].plot(adl_sample)
+    axs[1].plot(fall_sample)
+    axs[0].set_ylabel('Acceleration (g)')
+    axs[1].set_ylabel('')
+    axs[0].set_title('ADL sample')
+    axs[1].set_title('Fall sample')
+    fig.supxlabel('Time')
+    rect = patches.Rectangle((1350, -7.5), 200, 15, linewidth=1,  facecolor='CornflowerBlue', alpha=0.5, zorder=10)
+    axs[1].add_patch(rect)
+    # axs[1].legend(['x', 'y', 'z'])
+    sns.despine()
+    plt.savefig('figs/sisfall_signal.eps', format='eps', bbox_inches='tight')
+    plt.show()
 
 def clip_arr(arr):
     return np.clip(arr, -2,2)

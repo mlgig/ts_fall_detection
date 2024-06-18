@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from scripts import utils
 from sklearn.model_selection import train_test_split
 
@@ -22,8 +23,27 @@ def load(clip=False):
          g_from_LSB).apply(utils.magnitude).apply(reshape_arr)
     if clip:
          fallalld_waist['accel_g'] = fallalld_waist['accel_g'].apply(clip_arr)
-    fallalld_waist.drop(columns=['Acc'], inplace=True)
     return fallalld_waist
+
+def plot_sample(df):
+    adl_sample = g_from_LSB(df[df['target']==0].loc[0].Acc)
+    fall_sample = g_from_LSB(df[df['target']==1].loc[88].Acc)
+    fig, axs = plt.subplots(1,2, figsize=(8,3), dpi=400, sharey=True,layout='tight')
+    axs[0].plot(adl_sample)
+    axs[1].plot(fall_sample)
+    axs[0].set_ylabel('Acceleration (g)')
+    axs[1].set_ylabel('')
+    axs[0].set_title('ADL sample')
+    axs[1].set_title('Fall sample')
+    # axs[0].set_xlabel('Time')
+    # axs[1].set_xlabel('Time')
+    fig.supxlabel('Time')
+    rect = patches.Rectangle((2180, -3.5), 200, 6.5, linewidth=1,  facecolor='CornflowerBlue', alpha=0.5, zorder=10)
+    axs[1].add_patch(rect)
+    # axs[1].legend(['x', 'y', 'z'])
+    sns.despine()
+    plt.savefig('figs/fallalld_signal.eps', format='eps', bbox_inches='tight')
+    plt.show()
 
 def clip_arr(arr):
     return np.clip(arr, -2,2)

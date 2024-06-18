@@ -26,7 +26,7 @@ from sklearn.linear_model import LogisticRegressionCV, LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
 
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve, auc
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
@@ -89,17 +89,21 @@ def get_models(type=None, models_subset=None):
 def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=None, verbose=1, cm_grid=(1,5)):
     trained_models = {}
     models = get_models(type=type, models_subset=subset)
-    metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score'])
+    metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'auc', 'precision', 'recall', 'specificity', 'f1-score'])
     if verbose > 2:
         fig, axs = plt.subplots(*cm_grid, figsize=(10,3), sharey=True)
         fig.supxlabel('Predicted label')
     for m, model in tqdm(enumerate(models.items())):
+        # only preprocess if it is a tabular model. TS models have internal preprocessing
+        model_name = model[0]
+        preprocess = model_name in ['LogisticCV', 'RandomForest', 'KNN', 'RidgeCV', 'ExtraTrees']
         metrics, trained_model, cm = predict_eval(
             model, s, freq, X_in=(X_train, X_test),
-            y_in=(y_train, y_test), verbose=verbose)
+            y_in=(y_train, y_test), verbose=verbose,
+            preprocess=preprocess)
         if verbose > 2:
             ax = axs.flat[m]
-            plot_cm(cm, ax=ax, model_name=model[0])
+            plot_cm(cm, ax=ax, model_name=model_name)
             ax.set_title(model[0])
             ax.set_xlabel('')
             if m>0:
@@ -107,8 +111,9 @@ def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=No
         these_metrics = pd.DataFrame(data=metrics)
         metrics_df = pd.concat([metrics_df, these_metrics], ignore_index=True)
         trained_models[model[0]]=trained_model
-    plt.savefig('figs/confmats.eps', format='eps', bbox_inches='tight')
-    plt.show()
+    if verbose > 2:
+        plt.savefig('figs/confmats.eps', format='eps', bbox_inches='tight')
+        plt.show()
 
     return metrics_df, trained_models
 
@@ -134,15 +139,16 @@ def to_labels(pos_probs, threshold):
     # apply threshold to positive probabilities to create labels
     return (pos_probs >= threshold).astype('int')
 
-def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_threshold=False, verbose=1):
+def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_threshold=False, verbose=1, preprocess=False):
     win_size = int(s*freq)
     target_names = ['ADL', 'Fall']
     model_name, clf = model
-    # clf = make_pipeline(
-    #     StandardScaler(),
-    #     SimpleImputer(missing_values=np.nan, strategy='mean'),
-    #     clf
-    # )
+    if preprocess:
+        clf = make_pipeline(
+            StandardScaler(),
+            SimpleImputer(missing_values=np.nan, strategy='mean'),
+            clf
+        )
     has_proba = hasattr(clf, 'predict_proba')
     if X_in is not None:
         X_train, X_test = X_in
@@ -155,36 +161,29 @@ def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_thr
     if has_proba:
         probs = clf.predict_proba(X_test)[:, 1]
         train_probs = clf.predict_proba(X_train)[:, 1]
+        auc_score = np.round(roc_auc_score(y_test, probs), 2)
     else:
-        if adapt_threshold:
-            adapt_threshold = False
-            print("Setting adapt_threshold=False since chosen classifier has no predict_proba() method")
-    if adapt_threshold:
-        thresholds = np.arange(0, 1, 0.001)
-        # evaluate each threshold
-        scores = [f1_score(y_train, to_labels(train_probs, t)) for t in thresholds]
-        # get best threshold
-        ix = np.argmax(scores)
-        print('Threshold=%.3f, F-Score=%.5f' % (thresholds[ix], scores[ix]))
-        y_pred = to_labels(probs, thresholds[ix])
-    else:
-        y_pred = clf.predict(X_test)
+        probs = clf.decision_function(X_test)
+        fpr, tpr, _ = roc_curve(y_test, probs)
+        auc_score = np.round(auc(fpr, tpr), 2)
+    y_pred = clf.predict(X_test)
     runtime = (timeit.default_timer() - starttime)/X_test.shape[0]
     runtime = np.round(runtime * 1000) # milliseconds (ms)
     precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average='binary', zero_division=1)
     if verbose > 1:
-        if has_proba:
-            print(f'{model_name} AUC: {np.round(roc_auc_score(y_test, probs), 2)}')
-        else:
-            print("Skipping AUC since chosen classifier has no predict_proba() method")
-            print(classification_report(y_test, y_pred, target_names=target_names))
-    cm = confusion_matrix(y_test, y_pred) if verbose > 2 else None
+        print(f'{model_name} AUC: {auc_score}')
+        print(classification_report(y_test, y_pred, target_names=target_names))
+    cm = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = cm.ravel()
+    specificity = tn / (tn+fp)
     return dict({'model': [model_name],
                  'window_size': s,
                  'runtime':[np.round(runtime, 2)],
-                 'precision':[np.round(precision, 2)],
-                 'recall':[np.round(recall, 2)],
-                 'f1-score':[np.round(f1, 2)]}
+                 'auc': [np.round(auc_score*100, 2)],
+                 'precision':[np.round(precision*100, 2)],
+                 'recall':[np.round(recall*100, 2)],
+                 'specificity': [np.round(specificity*100, 2)],
+                 'f1-score':[np.round(f1*100, 2)]}
                 ), clf, cm
 
 def plot_cm(cm, model_name, ax, fontsize=20, colorbar=False):
@@ -251,7 +250,7 @@ def cross_validate(dataset, model_type=None, models_subset=None,
             metrics_df = pd.concat([metrics_df, this_df], ignore_index=True)
     mean_df = metrics_df.groupby(['model']).mean().round(2)
     std_df = metrics_df.groupby(['model']).std().round(2)
-    cols = ['model', 'window_size', 'runtime', 'precision', 'recall', 'f1-score']
+    cols = ['model', 'window_size', 'runtime', 'auc', 'precision', 'recall', 'specificity', 'f1-score']
     aggr = {c: [] for c in cols}
     for i in mean_df.index:
         aggr['model'].append(i)

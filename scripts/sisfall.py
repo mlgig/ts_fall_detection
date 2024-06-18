@@ -14,7 +14,7 @@ def load(clip=False):
     if clip:
         sisfall['accel_g'] = sisfall['accel_g'].apply(clip_arr)
     sisfall['accel_g'] = sisfall['accel_g'].apply(utils.magnitude)
-    sisfall = sisfall[sisfall['Duration (s)'] > 12]
+    # sisfall = sisfall[sisfall['Duration (s)'] > 12]
     return sisfall
 
 def plot_sample(df):

@@ -13,18 +13,20 @@ def load(clip=False):
     farseeing = pd.read_pickle(r'data/farseeing.pkl').reset_index().drop(columns=['index'])
     return farseeing
 
-def plot_sample(df):
+def plot_sample(df, ax):
     arr = np.array(df['accel'][1])
-    fig, ax = plt.subplots(figsize=(9,3), dpi=400)
+    # fig, ax = plt.subplots(figsize=(9,3), dpi=400)
     ax.plot(np.array(arr))
-    ax.set_ylabel('Acceleration (g)')
-    ax.set_xlabel('Time')
+    ax.set_ylabel('Accel (g)')
+    ax.set_title('FARSEEING Sample')
+    ax.set_xlabel('')
+    # ax.set_xticklabels([])
     rect = patches.Rectangle((59000, -1.5), 2000, 4, linewidth=1,  facecolor='CornflowerBlue', alpha=0.5, zorder=10)
     ax.add_patch(rect)
     # ax.legend(['x', 'y', 'z'])
-    sns.despine()
-    plt.savefig('figs/farseeing_signal.pdf', bbox_inches='tight')
-    plt.show()
+    # sns.despine()
+    # plt.savefig('figs/farseeing_signal.pdf', bbox_inches='tight')
+    # plt.show()
 
 def sample_adls(X_train, y_train, adl_samples):
     # Group falls and ADLs together to sample from ADLs

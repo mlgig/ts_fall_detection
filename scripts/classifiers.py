@@ -1,8 +1,5 @@
-from cProfile import label
 import copy
 import timeit
-from turtle import color
-from matplotlib import axis
 from tqdm.notebook import tqdm
 import numpy as np, pandas as pd
 from scipy.signal import resample
@@ -18,15 +15,15 @@ from scripts.utils import get_freq
 from matplotlib.patches import Rectangle
 import matplotlib.ticker as mticker
 
-from sklearn.linear_model import RidgeClassifierCV, RidgeClassifier
+from sklearn.linear_model import RidgeClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LogisticRegressionCV, LogisticRegression
+from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.pipeline import make_pipeline
 
-from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve, auc
+from sklearn.metrics import roc_auc_score, roc_curve, auc
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
@@ -35,18 +32,14 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import ConfusionMatrixDisplay
 
-from aeon.classification.deep_learning import InceptionTimeClassifier
-from aeon.classification.deep_learning import FCNClassifier
-from aeon.classification.distance_based import KNeighborsTimeSeriesClassifier
 from aeon.classification.feature_based import Catch22Classifier
-from aeon.classification.interval_based import DrCIFClassifier
 from aeon.classification.interval_based import QUANTClassifier
 from aeon.classification.convolution_based import RocketClassifier, HydraClassifier
 from aeon.classification.convolution_based import MultiRocketHydraClassifier
 
 from scripts.TsCaptum.explainers import Shapley_Value_Sampling as SHAP
 
-def explain_model(model, X, y, chunks, normalise=True):
+def explain_model(model, X, y, chunks, preprocess=True, normalise=True):
     X = X[:, np.newaxis, :]
     if X.shape[0]==1:
         print("Found 1 sample. Doubling it to avoid errors")
@@ -72,7 +65,7 @@ def get_models(type=None, models_subset=None):
             'Rocket': RocketClassifier(random_state=0, n_jobs=-1),
             'MultiRocketHydra': MultiRocketHydraClassifier(random_state=0, n_jobs=-1),
             'Catch22': Catch22Classifier(random_state=0, n_jobs=-1),
-            'QUANT': QUANTClassifier(random_state=0),
+            'QUANT': QUANTClassifier(random_state=0)
         }
     }
 
@@ -86,33 +79,35 @@ def get_models(type=None, models_subset=None):
     return models
 
 
-def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=None, verbose=1, cm_grid=(1,5)):
+def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=None, verbose=1, cm_grid=(1,5), confmat_name='confmat'):
     trained_models = {}
     models = get_models(type=type, models_subset=subset)
     metrics_df = pd.DataFrame(columns=['model', 'window_size', 'runtime', 'auc', 'precision', 'recall', 'specificity', 'f1-score'])
     if verbose > 2:
         fig, axs = plt.subplots(*cm_grid, figsize=(10,3), sharey=True)
         fig.supxlabel('Predicted label')
-    for m, model in tqdm(enumerate(models.items())):
-        # only preprocess if it is a tabular model. TS models have internal preprocessing
-        model_name = model[0]
-        preprocess = model_name in ['LogisticCV', 'RandomForest', 'KNN', 'RidgeCV', 'ExtraTrees']
+    for m, (model_name, clf) in enumerate(models.items()):
+        # clf = make_pipeline(
+        #     StandardScaler(),
+        #     SimpleImputer(missing_values=np.nan, strategy='mean'),
+        #     clf
+        # )
+        # preprocess = model_name in ['LogisticCV', 'RandomForest', 'KNN', 'RidgeCV', 'ExtraTrees']
         metrics, trained_model, cm = predict_eval(
-            model, s, freq, X_in=(X_train, X_test),
-            y_in=(y_train, y_test), verbose=verbose,
-            preprocess=preprocess)
+            (model_name, clf), s, freq, X_in=(X_train, X_test),
+            y_in=(y_train, y_test), verbose=verbose)
         if verbose > 2:
             ax = axs.flat[m]
             plot_cm(cm, ax=ax, model_name=model_name)
-            ax.set_title(model[0])
+            ax.set_title(model_name)
             ax.set_xlabel('')
             if m>0:
                 ax.set_ylabel('')
         these_metrics = pd.DataFrame(data=metrics)
         metrics_df = pd.concat([metrics_df, these_metrics], ignore_index=True)
-        trained_models[model[0]]=trained_model
+        trained_models[model_name]=trained_model
     if verbose > 2:
-        plt.savefig('figs/confmats.eps', format='eps', bbox_inches='tight')
+        plt.savefig(f'figs/{confmat_name}.eps', format='eps', bbox_inches='tight')
         plt.show()
 
     return metrics_df, trained_models
@@ -139,23 +134,26 @@ def to_labels(pos_probs, threshold):
     # apply threshold to positive probabilities to create labels
     return (pos_probs >= threshold).astype('int')
 
-def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_threshold=False, verbose=1, preprocess=False):
+def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_threshold=False, verbose=1):
     win_size = int(s*freq)
     target_names = ['ADL', 'Fall']
     model_name, clf = model
-    if preprocess:
-        clf = make_pipeline(
-            StandardScaler(),
-            SimpleImputer(missing_values=np.nan, strategy='mean'),
-            clf
-        )
+    print(f'{model_name}', end='')
+    # if preprocess:
+    #     clf = make_pipeline(
+    #         StandardScaler(),
+    #         SimpleImputer(missing_values=np.nan, strategy='mean'),
+    #         clf
+    #     )
     has_proba = hasattr(clf, 'predict_proba')
     if X_in is not None:
         X_train, X_test = X_in
         y_train, y_test = y_in
     X_train = X_train[:, :win_size]
     X_test = X_test[:, :win_size]
+    print('.', end='')
     clf.fit(X_train, y_train)
+    print('.', end='')
     if starttime is None:
         starttime = timeit.default_timer()
     if has_proba:
@@ -168,7 +166,8 @@ def predict_eval(model, s, freq, X_in=None, y_in=None, starttime=None, adapt_thr
         auc_score = np.round(auc(fpr, tpr), 2)
     y_pred = clf.predict(X_test)
     runtime = (timeit.default_timer() - starttime)/X_test.shape[0]
-    runtime = np.round(runtime * 1000) # milliseconds (ms)
+    runtime = np.round(runtime * 1000000) # microseconds (ms)
+    print('.', end=' ')
     precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average='binary', zero_division=1)
     if verbose > 1:
         print(f'{model_name} AUC: {auc_score}')
@@ -212,7 +211,7 @@ def get_dataset_name(dataset):
     return names[dataset]
 
 def cross_validate(dataset, model_type=None, models_subset=None,
-                   s=7, cv=5, df=None, verbose=True, random_state=0):
+                   s=7, cv=5, df=None, verbose=True, random_state=9):
     dataset_name = get_dataset_name(dataset)
     if df is None:
         df = dataset.load()
@@ -257,6 +256,8 @@ def cross_validate(dataset, model_type=None, models_subset=None,
         for col in cols[1:]:
             aggr[col].append(f'{mean_df.loc[i][col]} $\pm$ {std_df.loc[i][col]}')
     aggr_df = pd.DataFrame(data=aggr)
+    aggr_df['Dataset'] = dataset_name
+    metrics_df['Dataset'] = dataset_name
     aggr_df.to_csv(f'results/{dataset_name}_{model_type}_{s}.csv')
     return metrics_df, aggr_df
 
@@ -275,32 +276,53 @@ def boxplot(df, dataset, model_type, metric='f1-score', save=False, **kwargs):
                     format='eps', bbox_inches='tight')
     plt.show()
 
+
 def cross_dataset_eval(d1, d2):
     # resample to the lower frequency
     new_freq = min(get_freq(d1), get_freq(d2))
-    X_d1, y_d1 = utils.train_test_subjects_split(d1, clip=d1!=farseeing, new_freq=new_freq, split=False)
+    X_train_d1, _, y_train_d1, _ = utils.train_test_subjects_split(d1, clip=d1!=farseeing, new_freq=new_freq)
     
-    X_d2, y_d2 = utils.train_test_subjects_split(d2, clip=d2!=farseeing, new_freq=new_freq, split=False)
+    X_train_d2, X_test, y_train_d2, y_test = utils.train_test_subjects_split(d2, clip=d2!=farseeing, new_freq=new_freq, show_test=True)
 
-    print(f'<----- {get_dataset_name(d1)} > {get_dataset_name(d2)} ----->')
-    d1d2_df, _ = run_models(X_d1, y_d1, X_d2, y_d2, freq=new_freq, type='ts')
-    d1d2_df['scenario'] = f'{get_dataset_name(d1)}>{get_dataset_name(d2)}'
-    print(f'<----- {get_dataset_name(d2)} > {get_dataset_name(d1)} ----->')
-    d2d1_df, _ = run_models(X_d2, y_d2, X_d1, y_d1, freq=new_freq, type='ts')
-    d2d1_df['scenario'] = f'{get_dataset_name(d2)}>{get_dataset_name(d1)}'
+    print(f'\n<----- {get_dataset_name(d1)} > {get_dataset_name(d2)} ----->')
+    d1d2_df, _ = run_models(X_train_d1, y_train_d1, X_test, y_test, freq=new_freq, type='ts')
+    d1d2_df['trainset'] = f'{get_dataset_name(d1)}'
 
     # Mix all and train_test_split
-    X = np.concatenate([X_d1, X_d2], axis=0)
-    y = np.concatenate([y_d1, y_d2], axis=0)
+    X_train = np.concatenate([X_train_d1, X_train_d2], axis=0)
+    y_train = np.concatenate([y_train_d1, y_train_d2], axis=0)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.33, random_state=0)
-
-    print(f'<----- {get_dataset_name(d1)} + {get_dataset_name(d2)} ----->')
+    print(f'\n\n<----- {get_dataset_name(d1)} + {get_dataset_name(d2)} ----->')
     mixed_df, _ = run_models(X_train, y_train, X_test, y_test, freq=new_freq, type='ts')
-    mixed_df['scenario'] = f'{get_dataset_name(d1)}+{get_dataset_name(d2)}'
+    mixed_df['trainset'] = f'{get_dataset_name(d1)}+{get_dataset_name(d2)}'
 
-    return pd.concat([d1d2_df, d2d1_df, mixed_df], ignore_index=True)
+    return pd.concat([d1d2_df, mixed_df], ignore_index=True)
+# def cross_dataset_eval(d1, d2):
+#     # resample to the lower frequency
+#     new_freq = min(get_freq(d1), get_freq(d2))
+#     X_d1, y_d1 = utils.train_test_subjects_split(d1, clip=d1!=farseeing, new_freq=new_freq, split=False)
+    
+#     X_d2, y_d2 = utils.train_test_subjects_split(d2, clip=d2!=farseeing, new_freq=new_freq, split=False)
+
+#     print(f'<----- {get_dataset_name(d1)} > {get_dataset_name(d2)} ----->')
+#     d1d2_df, _ = run_models(X_d1, y_d1, X_d2, y_d2, freq=new_freq, type='ts')
+#     d1d2_df['scenario'] = f'{get_dataset_name(d1)}>{get_dataset_name(d2)}'
+#     print(f'<----- {get_dataset_name(d2)} > {get_dataset_name(d1)} ----->')
+#     d2d1_df, _ = run_models(X_d2, y_d2, X_d1, y_d1, freq=new_freq, type='ts')
+#     d2d1_df['scenario'] = f'{get_dataset_name(d2)}>{get_dataset_name(d1)}'
+
+#     # Mix all and train_test_split
+#     X = np.concatenate([X_d1, X_d2], axis=0)
+#     y = np.concatenate([y_d1, y_d2], axis=0)
+
+#     X_train, X_test, y_train, y_test = train_test_split(
+#     X, y, test_size=0.33, random_state=0)
+
+#     print(f'<----- {get_dataset_name(d1)} + {get_dataset_name(d2)} ----->')
+#     mixed_df, _ = run_models(X_train, y_train, X_test, y_test, freq=new_freq, type='ts')
+#     mixed_df['scenario'] = f'{get_dataset_name(d1)}+{get_dataset_name(d2)}'
+
+#     return pd.concat([d1d2_df, d2d1_df, mixed_df], ignore_index=True)
 
 
 def get_sample_attributions(clf, X_test, y_test, c=28, normalise=True, n=2):
@@ -312,6 +334,7 @@ def get_sample_attributions(clf, X_test, y_test, c=28, normalise=True, n=2):
     tp_exp = explain_model(clf, X_test[true_falls][:n],
                            y_test[true_falls][:n], chunks=c,
                            normalise=normalise)
+    print(X_test[false_adls][:n].shape)
     fp_exp = explain_model(clf, X_test[false_falls][:n],
                            y_test[false_falls][:n], chunks=c,
                            normalise=normalise)
@@ -365,5 +388,5 @@ def plot_sample_with_attributions(attr_dict):
     cax = plt.axes((1.01, 0.05, 0.015, 0.92))
     plt.colorbar(sm, cax=cax)
     fig.supxlabel('Time in seconds')
-    plt.savefig('figs/model_explanation.eps', format='eps', bbox_inches='tight')
+    plt.savefig('figs/model_explanation.pdf', bbox_inches='tight')
     plt.show()

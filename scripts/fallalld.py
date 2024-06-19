@@ -25,25 +25,18 @@ def load(clip=False):
          fallalld_waist['accel_g'] = fallalld_waist['accel_g'].apply(clip_arr)
     return fallalld_waist
 
-def plot_sample(df):
+def plot_sample(df, axs):
     adl_sample = g_from_LSB(df[df['target']==0].loc[0].Acc)
     fall_sample = g_from_LSB(df[df['target']==1].loc[88].Acc)
-    fig, axs = plt.subplots(1,2, figsize=(8,3), dpi=400, sharey=True,layout='tight')
     axs[0].plot(adl_sample)
     axs[1].plot(fall_sample)
-    axs[0].set_ylabel('Acceleration (g)')
+    axs[0].set_ylabel('Accel (g)')
     axs[1].set_ylabel('')
-    axs[0].set_title('ADL sample')
-    axs[1].set_title('Fall sample')
-    # axs[0].set_xlabel('Time')
-    # axs[1].set_xlabel('Time')
-    fig.supxlabel('Time')
+    axs[0].set_title('FallAllD ADL Sample')
+    axs[1].set_title('FallAllD Fall Sample')
     rect = patches.Rectangle((2180, -3.5), 200, 6.5, linewidth=1,  facecolor='CornflowerBlue', alpha=0.5, zorder=10)
     axs[1].add_patch(rect)
-    # axs[1].legend(['x', 'y', 'z'])
-    sns.despine()
-    plt.savefig('figs/fallalld_signal.eps', format='eps', bbox_inches='tight')
-    plt.show()
+    axs[0].sharey(axs[1])
 
 def clip_arr(arr):
     return np.clip(arr, -2,2)
@@ -59,7 +52,7 @@ def get_X_y(df, winsize=7, clip=True):
     freq = 238
     X = np.zeros([df.shape[0], winsize*freq])
     # start 1 sec before the fall
-    start = int(df['accel_g'][0].size/2) - freq
+    start = int(df.reset_index()['accel_g'][0].size/2) - freq
     end = start + (freq * winsize)
     for i, row in enumerate(df['accel_g']):
         if clip:

@@ -17,6 +17,7 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import ConfusionMatrixDisplay
 
 from sklearn.preprocessing import scale
+from torch import layout
 from torch.utils import data
 from scripts import farseeing, fallalld, sisfall
 
@@ -202,7 +203,7 @@ def get_freq(dataset):
     else:
         return 200
 
-def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=False, clip=False, new_freq=None, split=True):
+def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=False, clip=False, new_freq=None, split=True, show_test=False):
     df = dataset.load(clip=clip)
     subjects = df['SubjectID'].unique()
     resample = new_freq is not None and new_freq!=get_freq(dataset)
@@ -214,6 +215,8 @@ def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=
         return X, y
     else:
         train_set, test_set = train_test_split(subjects, test_size=test_size, random_state=random_state)
+        if show_test:
+            print(f'Test set -> {len(test_set)} of {len(subjects)} subjects: {test_set}.')
         test_df = df[df['SubjectID']==test_set[0]]
         df.drop(df[df['SubjectID']==test_set[0]].index, inplace=True)
         for id in test_set[1:]:
@@ -236,3 +239,73 @@ def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=
             visualize_falls_adls(X_train, y_train)
             visualize_falls_adls(X_test, y_test, dataset="test")
         return X_train, X_test, y_train, y_test
+    
+def summary_visualization(dfs, model_type):
+    dataset_names = ['FARSEEING', 'FallAllD', 'SisFall']
+    plt.rcParams.update({'font.size': 13})
+    fig, axs = plt.subplots(1,3, figsize=(9, 4), dpi=400,
+                            sharey=True, layout='tight')
+    for d, df in enumerate(dfs):
+        df.sort_values(by='model', inplace=True)
+        sns.boxplot(data=df, x='model', y='f1-score', width=0.5, ax=axs[d], linewidth=1,
+                    palette='tab10')
+        axs[d].grid(axis='y')
+        axs[d].set_title(dataset_names[d])
+        axs[d].set_xlabel('')
+        # axs[d].grid(axis='both')
+        if d != 0:
+            axs[d].set_ylabel('')
+        plt.setp(axs[d].get_xticklabels(), rotation=45, ha='right')
+    sns.despine()
+    plt.savefig(f'figs/{model_type}_summary_boxplot.eps', format='eps', bbox_inches='tight')
+    plt.show()
+
+def ts_vs_tabular_summary(all_dfs):
+    dataset_names = ['FARSEEING', 'FallAllD', 'SisFall']
+    # add dataset names to each df
+    # concatenate all results for each dataset
+    farseeing_cv_df, farseeing_cv_df_ts, fallalld_cv_df, fallalld_cv_df_ts, sisfall_cv_df, sisfall_cv_df_ts = all_dfs
+    farseeing_all_df = pd.concat([df.assign(
+        dataset=dataset_names[0]) for df in [farseeing_cv_df.assign(type='Tabular Models'),
+        farseeing_cv_df_ts.assign(type='Time Series Models')]],
+        ignore_index=True)
+    fallalld_all_df = pd.concat([df.assign(
+        dataset=dataset_names[1]) for df in [fallalld_cv_df.assign(type='Tabular Models'),
+        fallalld_cv_df_ts.assign(type='Time Series Models')]],
+        ignore_index=True)
+    sisfall_all_df = pd.concat([df.assign(
+        dataset=dataset_names[2]) for df in [sisfall_cv_df.assign(type='Tabular Models'),
+        sisfall_cv_df_ts.assign(type='Time Series Models')]],
+        ignore_index=True)
+    all_results_df = pd.concat([farseeing_all_df, fallalld_all_df, sisfall_all_df], ignore_index=True)
+    all_results_df.to_csv('results/all_results.csv')
+    all_results_df.drop(all_results_df[all_results_df['f1-score']==0].index, inplace=True)
+    plt.rcParams.update({'font.size': 13})
+    plt.figure(figsize=(10, 3), dpi=400)
+    # plt.rcParams.update({'font.size': 16})
+    sns.boxplot(data=all_results_df, x='type', y='f1-score', hue='dataset', width=0.3)
+    # plt.xticks(rotation=45, ha='right')
+    plt.grid()
+    plt.xlabel('')
+    sns.despine()
+    plt.savefig('figs/ts_vs_tabular_boxplot_summary.eps', format='eps', bbox_inches='tight')
+    plt.show()
+
+def cross_dataset_summary(dfs):
+    df = pd.concat(dfs, ignore_index=True)
+    plt.rcParams.update({'font.size': 13})
+    melted = df.drop(columns=['runtime', 'window_size', 'auc', 'specificity']).melt(
+        id_vars=["trainset", "model"])
+    
+    plt.figure(figsize=(9, 3), dpi=400)
+    order=['FARSEEING', 'FallAllD', 'FallAllD+', 'SisFall','SisFall+']
+    melted.replace({'FallAllD+FARSEEING':'FallAllD+',
+                    'SisFall+FARSEEING':'SisFall+'}, inplace=True)
+    sns.boxplot(melted, x='trainset', y='value', hue='variable', width=0.5, palette="tab10", order=order)
+    plt.grid(axis='both')
+    plt.xlabel('Training Set', labelpad=10)
+    plt.ylabel('score')
+    sns.despine()
+    # plt.legend(loc=9, ncols=3)
+    plt.savefig('figs/cross_dataset_boxplot_summary.eps', format='eps', bbox_inches='tight')
+    plt.show()

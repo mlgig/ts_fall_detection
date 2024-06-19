@@ -14,26 +14,24 @@ def load(clip=False):
     if clip:
         sisfall['accel_g'] = sisfall['accel_g'].apply(clip_arr)
     sisfall['accel_g'] = sisfall['accel_g'].apply(utils.magnitude)
-    # sisfall = sisfall[sisfall['Duration (s)'] > 12]
+    sisfall = sisfall[sisfall['Duration (s)'] > 12]
     return sisfall
 
-def plot_sample(df):
+def plot_sample(df, axs):
     adl_sample = get_g(df[df['Target']==0].loc[8].Acc)
     fall_sample = get_g(df[df['Target']==1].loc[79].Acc)
-    fig, axs = plt.subplots(1,2, figsize=(8,3), dpi=400, sharey=True,layout='tight')
+    # fig, axs = plt.subplots(1,2, figsize=(8,3), dpi=400, sharey=True,layout='tight')
     axs[0].plot(adl_sample)
     axs[1].plot(fall_sample)
-    axs[0].set_ylabel('Acceleration (g)')
+    axs[0].set_ylabel('Accel (g)')
     axs[1].set_ylabel('')
-    axs[0].set_title('ADL sample')
-    axs[1].set_title('Fall sample')
-    fig.supxlabel('Time')
+    axs[0].set_title('SisFall ADL Sample')
+    axs[1].set_title('SisFall Fall Sample')
+    axs[0].set_xlabel('Time')
+    axs[1].set_xlabel('Time')
     rect = patches.Rectangle((1350, -7.5), 200, 15, linewidth=1,  facecolor='CornflowerBlue', alpha=0.5, zorder=10)
     axs[1].add_patch(rect)
-    # axs[1].legend(['x', 'y', 'z'])
-    sns.despine()
-    plt.savefig('figs/sisfall_signal.eps', format='eps', bbox_inches='tight')
-    plt.show()
+    axs[0].sharey(axs[1])
 
 def clip_arr(arr):
     return np.clip(arr, -2,2)

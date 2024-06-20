@@ -1,5 +1,6 @@
 # import pywt
 from cProfile import label
+from curses import window
 import numpy as np
 import pandas as pd
 from math import isnan, sqrt
@@ -308,4 +309,22 @@ def cross_dataset_summary(dfs):
     sns.despine()
     # plt.legend(loc=9, ncols=3)
     plt.savefig('figs/cross_dataset_boxplot_summary.eps', format='eps', bbox_inches='tight')
+    plt.show()
+
+def plot_window_size_ablation(window_metrics=None):
+    if window_metrics is None:
+        window_metrics = pd.read_csv('results/window_size_ablation.csv')
+    fig, axs = plt.subplots(2,3, figsize=(9,4), dpi=(400),
+                        sharex='col', layout='tight')
+    titles = [f'Test time/sample ($\mu$s)', 'AUC',
+            'Precision', 'Recall', 'Specificity', f'F$_1$ score']
+    for i, col in enumerate(window_metrics.columns[2:]):
+        ax = axs.flat[i]
+        sns.lineplot(data=window_metrics, x='window_size', y=col, ax=ax)
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+        ax.set_title(titles[i])
+    axs[0,0].ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+    fig.supxlabel('Total window size in seconds')
+    plt.savefig('figs/window_size_ablation.pdf', bbox_inches='tight')
     plt.show()

@@ -292,23 +292,23 @@ def ts_vs_tabular_summary(all_dfs):
     plt.savefig('figs/ts_vs_tabular_boxplot_summary.eps', format='eps', bbox_inches='tight')
     plt.show()
 
-def cross_dataset_summary(dfs):
-    df = pd.concat(dfs, ignore_index=True)
+def cross_dataset_summary(df):
+    # df = pd.concat(dfs, ignore_index=True)
     plt.rcParams.update({'font.size': 13})
     melted = df.drop(columns=['runtime', 'window_size', 'auc', 'specificity']).melt(
         id_vars=["trainset", "model"])
     
     plt.figure(figsize=(9, 3), dpi=400)
-    order=['FARSEEING', 'FallAllD', 'FallAllD+', 'SisFall','SisFall+']
-    melted.replace({'FallAllD+FARSEEING':'FallAllD+',
-                    'SisFall+FARSEEING':'SisFall+'}, inplace=True)
+    order=['FARSEEING', 'FallAllD', 'FallAllD+', 'SisFall','SisFall+', 'All']
+    # melted.replace({'FallAllD+FARSEEING':'FallAllD+',
+    #                 'SisFall+FARSEEING':'SisFall+'}, inplace=True)
     sns.boxplot(melted, x='trainset', y='value', hue='variable', width=0.5, palette="tab10", order=order)
     plt.grid(axis='both')
     plt.xlabel('Training Set', labelpad=10)
     plt.ylabel('score')
     sns.despine()
     # plt.legend(loc=9, ncols=3)
-    plt.savefig('figs/cross_dataset_boxplot_summary.eps', format='eps', bbox_inches='tight')
+    plt.savefig('figs/cross_dataset_boxplot_summary.pdf', bbox_inches='tight')
     plt.show()
 
 def plot_window_size_ablation(window_metrics=None):

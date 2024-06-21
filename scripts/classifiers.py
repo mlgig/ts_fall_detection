@@ -87,11 +87,11 @@ def run_models(X_train, y_train, X_test, y_test, freq, s=7, type=None, subset=No
         fig, axs = plt.subplots(*cm_grid, figsize=(10,3), sharey=True)
         fig.supxlabel('Predicted label')
     for m, (model_name, clf) in enumerate(models.items()):
-        # clf = make_pipeline(
-        #     StandardScaler(),
-        #     SimpleImputer(missing_values=np.nan, strategy='mean'),
-        #     clf
-        # )
+        clf = make_pipeline(
+            StandardScaler(),
+            SimpleImputer(missing_values=np.nan, strategy='mean'),
+            clf
+        )
         # preprocess = model_name in ['LogisticCV', 'RandomForest', 'KNN', 'RidgeCV', 'ExtraTrees']
         metrics, trained_model, cm = predict_eval(
             (model_name, clf), s, freq, X_in=(X_train, X_test),
@@ -277,52 +277,76 @@ def boxplot(df, dataset, model_type, metric='f1-score', save=False, **kwargs):
     plt.show()
 
 
-def cross_dataset_eval(d1, d2):
-    # resample to the lower frequency
-    new_freq = min(get_freq(d1), get_freq(d2))
-    X_train_d1, _, y_train_d1, _ = utils.train_test_subjects_split(d1, clip=d1!=farseeing, new_freq=new_freq)
+def cross_dataset_eval(simulated, real):
+    new_freq = get_freq(real) # resample to the same frequency
+    summary = []
+    # Train on the real dataset first
+    X_train_r, X_test_r, y_train_r, y_test_r = utils.train_test_subjects_split(real, show_test=True)
+    print(f'\n<----- {get_dataset_name(real)} > {get_dataset_name(real)} ----->')
+    train_on_real, _ = run_models(X_train_r, y_train_r, X_test_r,
+                                  y_test_r, type='ts', freq=new_freq)
+    train_on_real['trainset'] = get_dataset_name(real)
+    summary.append(train_on_real)
+
+    # Create lists to hold simulated training sets
+    X_train_s = []
+    y_train_s = []
+    for d in simulated:
+        print(f'\n\n<----- {get_dataset_name(d)} > {get_dataset_name(real)} ----->')
+        X_train_d, _, y_train_d, _ = utils.train_test_subjects_split(
+            d, clip=True, new_freq=new_freq)
+        X_train_s.append(X_train_d)
+        y_train_s.append(y_train_d)
+        cross_df, _ = run_models(
+            X_train_d, y_train_d, X_test_r, y_test_r, freq=new_freq, type='ts')
+        cross_df['trainset'] = get_dataset_name(d)
+        summary.append(cross_df)
+
+        # Mix and train_test_split
+        X_train_m = np.concatenate([X_train_d, X_train_r], axis=0)
+        y_train_m = np.concatenate([y_train_d, y_train_r], axis=0)
+
+        print(f'\n\n<----- {get_dataset_name(d)} + {get_dataset_name(real)} ----->')
+        mixed_df, _ = run_models(
+            X_train_m, y_train_m, X_test_r, y_test_r, freq=new_freq, type='ts')
+        mixed_df['trainset'] = f'{get_dataset_name(d)}+'
+        summary.append(mixed_df)
     
-    X_train_d2, X_test, y_train_d2, y_test = utils.train_test_subjects_split(d2, clip=d2!=farseeing, new_freq=new_freq, show_test=True)
+    # Join all and train on real
+    X_train_s.append(X_train_r)
+    y_train_s.append(y_train_r)
+    X_train_all = np.concatenate(X_train_s, axis=0)
+    y_train_all = np.concatenate(y_train_s, axis=0)
 
-    print(f'\n<----- {get_dataset_name(d1)} > {get_dataset_name(d2)} ----->')
-    d1d2_df, _ = run_models(X_train_d1, y_train_d1, X_test, y_test, freq=new_freq, type='ts')
-    d1d2_df['trainset'] = f'{get_dataset_name(d1)}'
+    print(f'\n\n<----- Combining all training sets from all datasets ----->')
+    all_df, _ = run_models(
+        X_train_all, y_train_all, X_test_r, y_test_r, freq=new_freq, type='ts')
+    all_df['trainset'] = 'All'
+    summary.append(all_df)
 
-    # Mix all and train_test_split
-    X_train = np.concatenate([X_train_d1, X_train_d2], axis=0)
-    y_train = np.concatenate([y_train_d1, y_train_d2], axis=0)
+    return pd.concat(summary, ignore_index=True)
 
-    print(f'\n\n<----- {get_dataset_name(d1)} + {get_dataset_name(d2)} ----->')
-    mixed_df, _ = run_models(X_train, y_train, X_test, y_test, freq=new_freq, type='ts')
-    mixed_df['trainset'] = f'{get_dataset_name(d1)}+{get_dataset_name(d2)}'
 
-    return pd.concat([d1d2_df, mixed_df], ignore_index=True)
-# def cross_dataset_eval(d1, d2):
+# def cross_dataset_eval(d1, d2, test_d):
 #     # resample to the lower frequency
 #     new_freq = min(get_freq(d1), get_freq(d2))
-#     X_d1, y_d1 = utils.train_test_subjects_split(d1, clip=d1!=farseeing, new_freq=new_freq, split=False)
+#     X_train_d1, _, y_train_d1, _ = utils.train_test_subjects_split(d1, clip=d1!=farseeing, new_freq=new_freq)
     
-#     X_d2, y_d2 = utils.train_test_subjects_split(d2, clip=d2!=farseeing, new_freq=new_freq, split=False)
+#     X_train_d2, X_test, y_train_d2, y_test = utils.train_test_subjects_split(d2, clip=d2!=farseeing, new_freq=new_freq, show_test=True)
 
-#     print(f'<----- {get_dataset_name(d1)} > {get_dataset_name(d2)} ----->')
-#     d1d2_df, _ = run_models(X_d1, y_d1, X_d2, y_d2, freq=new_freq, type='ts')
-#     d1d2_df['scenario'] = f'{get_dataset_name(d1)}>{get_dataset_name(d2)}'
-#     print(f'<----- {get_dataset_name(d2)} > {get_dataset_name(d1)} ----->')
-#     d2d1_df, _ = run_models(X_d2, y_d2, X_d1, y_d1, freq=new_freq, type='ts')
-#     d2d1_df['scenario'] = f'{get_dataset_name(d2)}>{get_dataset_name(d1)}'
+#     print(f'\n<----- {get_dataset_name(d1)} > {get_dataset_name(d2)} ----->')
+#     d1d2_df, _ = run_models(X_train_d1, y_train_d1, X_test, y_test, freq=new_freq, type='ts')
+#     d1d2_df['trainset'] = f'{get_dataset_name(d1)}'
 
 #     # Mix all and train_test_split
-#     X = np.concatenate([X_d1, X_d2], axis=0)
-#     y = np.concatenate([y_d1, y_d2], axis=0)
+#     X_train = np.concatenate([X_train_d1, X_train_d2], axis=0)
+#     y_train = np.concatenate([y_train_d1, y_train_d2], axis=0)
 
-#     X_train, X_test, y_train, y_test = train_test_split(
-#     X, y, test_size=0.33, random_state=0)
-
-#     print(f'<----- {get_dataset_name(d1)} + {get_dataset_name(d2)} ----->')
+#     print(f'\n\n<----- {get_dataset_name(d1)} + {get_dataset_name(d2)} ----->')
 #     mixed_df, _ = run_models(X_train, y_train, X_test, y_test, freq=new_freq, type='ts')
-#     mixed_df['scenario'] = f'{get_dataset_name(d1)}+{get_dataset_name(d2)}'
+#     mixed_df['trainset'] = f'{get_dataset_name(d1)}+{get_dataset_name(d2)}'
 
-#     return pd.concat([d1d2_df, d2d1_df, mixed_df], ignore_index=True)
+#     return pd.concat([d1d2_df, mixed_df], ignore_index=True)
 
 
 def get_sample_attributions(clf, X_test, y_test, c=28, normalise=True, n=2):
@@ -355,23 +379,58 @@ def scale_arr(arr):
     scaler = MinMaxScaler(feature_range=(-1,1))
     return scaler.fit_transform(arr.reshape(-1,1)).flatten()
 
+# def plot_sample_with_attributions(attr_dict):
+#     titles = ['True Falls', 'False Alarms', 'True ADLs', 'Misses']
+#     fig, axs = plt.subplots(5, 4, figsize=(10, 10), dpi=400,
+#                             sharey='row', sharex='col', layout='constrained')
+#     plt.rcParams.update({'font.size': 10})
+#     cmap = plt.get_cmap('coolwarm')
+#     attributions = copy.deepcopy(attr_dict)
+#     for i, (model_name, exps) in enumerate(attributions.items()):
+#         axs[i,0].set_ylabel(model_name)
+#         for e, exp in enumerate(exps):
+#             ax = axs[i,e]
+#             if i==0:
+#                 ax.set_title(titles[e])
+#             y = scale_arr(exp['sample'])
+#             x = np.arange(len(y))
+#             c = exp['attr'].flatten()
+#             ax.plot(c, linestyle=':', label='attribution profile', alpha=0.3)
+#             # Normalize the color values
+#             norm = mcolors.Normalize(vmin=-1, vmax=1)
+#             for j in range(len(x)-1):
+#                 ax.plot(x[j:j+2], y[j:j+2], color=cmap(norm(c[j])), linewidth=1.5, label='normalised sample' if j==0 else None)
+#             ticks_loc = ax.get_xticks().tolist()
+#             ax.xaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
+#             ax.set_xticklabels([i//100 for i in ticks_loc])
+#             # ax.grid(which='both', axis='x')     
+#     axs[1,3].legend()
+#     fig.supylabel('Attribution score')
+#     # Adding color bar to show the color scale
+#     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+#     sm.set_array([])
+#     cax = plt.axes((1.01, 0.05, 0.015, 0.92))
+#     plt.colorbar(sm, cax=cax)
+#     fig.supxlabel('Time in seconds')
+#     plt.savefig('figs/model_explanation.pdf', bbox_inches='tight')
+#     plt.show()
+
 def plot_sample_with_attributions(attr_dict):
-    titles = ['True Falls', 'False Alarms', 'True ADLs', 'Misses']
-    fig, axs = plt.subplots(5, 4, figsize=(10, 10), dpi=400,
-                            sharey='row', sharex='col', layout='constrained')
+    titles = ['True Fall', 'False Alarm', 'True ADL', 'Missed Fall']
     plt.rcParams.update({'font.size': 10})
     cmap = plt.get_cmap('coolwarm')
     attributions = copy.deepcopy(attr_dict)
     for i, (model_name, exps) in enumerate(attributions.items()):
-        axs[i,0].set_ylabel(model_name)
+        fig, axs = plt.subplots(2, 2, figsize=(10, 5), dpi=400,
+                            sharey='row', sharex='col', layout='constrained')
+        fig.suptitle(model_name)
         for e, exp in enumerate(exps):
-            ax = axs[i,e]
-            if i==0:
-                ax.set_title(titles[e])
+            ax = axs.flat[e]
+            ax.set_title(titles[e])
             y = scale_arr(exp['sample'])
             x = np.arange(len(y))
             c = exp['attr'].flatten()
-            ax.plot(c, linestyle=':', label='attribution profile', alpha=0.3)
+            ax.plot(c, linestyle=':', label='attribution profile', alpha=0.35)
             # Normalize the color values
             norm = mcolors.Normalize(vmin=-1, vmax=1)
             for j in range(len(x)-1):
@@ -380,13 +439,14 @@ def plot_sample_with_attributions(attr_dict):
             ax.xaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
             ax.set_xticklabels([i//100 for i in ticks_loc])
             # ax.grid(which='both', axis='x')     
-    axs[1,3].legend()
-    fig.supylabel('Attribution score')
-    # Adding color bar to show the color scale
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cax = plt.axes((1.01, 0.05, 0.015, 0.92))
-    plt.colorbar(sm, cax=cax)
-    fig.supxlabel('Time in seconds')
-    plt.savefig('figs/model_explanation.pdf', bbox_inches='tight')
-    plt.show()
+        axs[1,1].legend()
+        fig.supylabel('Attribution score')
+        # Adding color bar to show the color scale
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cax = plt.axes((1.01, 0.05, 0.015, 0.92))
+        plt.colorbar(sm, cax=cax)
+        fig.supxlabel('Time in seconds')
+        # sns.despine()
+        plt.savefig(f'figs/{model_name}_explanation.pdf', bbox_inches='tight')
+        plt.show()

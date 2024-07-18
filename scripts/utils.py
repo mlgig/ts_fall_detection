@@ -207,6 +207,7 @@ def get_freq(dataset):
 def train_test_subjects_split(dataset, test_size=0.3, random_state=0, visualize=False, clip=False, new_freq=None, split=True, show_test=False):
     df = dataset.load(clip=clip)
     subjects = df['SubjectID'].unique()
+    print(f'{len(subjects)} subjects')
     resample = new_freq is not None and new_freq!=get_freq(dataset)
     if split==False:
         X, y = dataset.get_X_y(df)

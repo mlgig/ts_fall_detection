@@ -2,21 +2,7 @@
 
 ## Abstract
 
-Falls pose a significant health risk, particularly for older peo-
-ple and those with specific medical conditions. Therefore, timely fall de-
-tection is crucial for preventing fall-related complications. Existing fall
-detection methods often have limitations, such as high false alarm rates
-or reliance on handcrafted features. Additionally, most approaches to
-fall detection are evaluated on simulated falls. This paper explores a new
-fall detection approach leveraging real-world fall data and state-of-the-
-art time series techniques. The proposed method eliminates the need for
-manual feature engineering and has efficient training times. We evaluate
-our approach on the FARSEEING dataset, a large collection of real-
-world falls, and two large simulated falls datasets, FallAllD and SisFall.
-Our approach achieves high accuracy (F1 score up to 97.2%). Further-
-more, we investigate the performance of models trained on simulated
-data and tested on real-world data. This research presents a real-time
-fall detection framework with potential for real-world implementation.
+Falls pose a significant health risk, particularly for older people and those with specific medical conditions. Therefore, timely fall detection is crucial for preventing fall-related complications. Existing fall detection methods often have high false alarm or false negative rates, and many rely on handcrafted features. Additionally, most approaches are evaluated using simulated falls, leading to performance degradation in real-world scenarios. This paper explores a new fall detection approach leveraging real-world fall data and state-of-the-art time series techniques. The proposed method eliminates the need for manual feature engineering and has efficient runtime. Our approach achieves high accuracy, with false alarms and false negatives each as few as one in three days on FARSEEING, a large dataset of real-world falls (mean F1 score: 90.7%). We also outperform existing methods on simulated falls datasets, FallAllD and SisFall. Furthermore, we investigate the performance of models trained on simulated data and tested on real-world data. This research presents a real-time fall detection framework with potential for real-world implementation.
 
 ## Link to full paper
 You can read the full paper [here](https://www.researchgate.net/publication/382940726_Accurate_and_Efficient_Real-World_Fall_Detection_Using_Time_Series_Techniques) or download [here](paper/Accurate%20and%20Efficient%20Fall%20Detection%20Using%20Time%20Series%20Techniques.pdf). All the results can be seen in this repository, summarised in [evaluation.ipynb](evaluation.ipynb).

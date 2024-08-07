@@ -18,8 +18,11 @@ more, we investigate the performance of models trained on simulated
 data and tested on real-world data. This research presents a real-time
 fall detection framework with potential for real-world implementation.
 
+## Link to full paper
+You can read the full paper [here](https://www.researchgate.net/publication/382940726_Accurate_and_Efficient_Real-World_Fall_Detection_Using_Time_Series_Techniques) or download [here](paper/Accurate%20and%20Efficient%20Fall%20Detection%20Using%20Time%20Series%20Techniques.pdf). All the results can be seen in this repository, summarised in [evaluation.ipynb](evaluation.ipynb).
+
 ## Using the Code
 
-All the results can be seen in the repository. To rerun the code, the preprocessed versions of `FallAlld` and `SisFall` used in this study can be downloaded [here](https://drive.google.com/file/d/1ysbgiGd0jDDtkTGu2HYJGiSEUawLJt8b/view?usp=sharing). The FARSEEING dataset can be requested for [here](https://farseeingresearch.eu/the-farseeing-real-world-fall-repository-a-large-scale-collaborative-database-to-collect-and-share-sensor-signals-from-real-world-falls/).
+To rerun the code, the preprocessed versions of `FallAlld` and `SisFall` used in this study can be downloaded [here](https://drive.google.com/file/d/1ysbgiGd0jDDtkTGu2HYJGiSEUawLJt8b/view?usp=sharing). The FARSEEING dataset can be requested for [here](https://farseeingresearch.eu/the-farseeing-real-world-fall-repository-a-large-scale-collaborative-database-to-collect-and-share-sensor-signals-from-real-world-falls/).
 
-After getting the data, the data directory should be in the root directory. Then run [evaluation.ipynb](evaluation.ipynb). Python 3.11.9 or lower is required.
+After getting the data, the data directory should be in the root directory. Then run [evaluation.ipynb](evaluation.ipynb), written in Python 3.11.9.

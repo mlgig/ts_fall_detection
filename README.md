@@ -12,3 +12,10 @@ You can read the full paper [here](https://www.researchgate.net/publication/3829
 To rerun the code, the preprocessed versions of `FallAlld` and `SisFall` used in this study can be downloaded [here](https://drive.google.com/file/d/1ysbgiGd0jDDtkTGu2HYJGiSEUawLJt8b/view?usp=sharing). The FARSEEING dataset can be requested for [here](https://farseeingresearch.eu/the-farseeing-real-world-fall-repository-a-large-scale-collaborative-database-to-collect-and-share-sensor-signals-from-real-world-falls/).
 
 After getting the data, the data directory should be in the root directory. Then run [evaluation.ipynb](evaluation.ipynb), written in Python 3.11.9.
+
+## Citation
+
+@article{aderinola_aaltd2024,
+  title={Accurate and Efficient Real-World Fall Detection Using Time Series Techniques},
+  author={Aderinola, Timilehin B and Palmerini, Luca and D’Ascanio, Ilaria and Chiari, Lorenzo and Klenk, Jochen and Becker, Clemens and Caulfield, Brian and Ifrim, Georgiana}
+}

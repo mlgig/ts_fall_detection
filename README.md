@@ -14,8 +14,9 @@ To rerun the code, the preprocessed versions of `FallAlld` and `SisFall` used in
 After getting the data, the data directory should be in the root directory. Then run [evaluation.ipynb](evaluation.ipynb), written in Python 3.11.9.
 
 ## Citation
-
+`
 @article{aderinola_aaltd2024,
   title={Accurate and Efficient Real-World Fall Detection Using Time Series Techniques},
   author={Aderinola, Timilehin B and Palmerini, Luca and D’Ascanio, Ilaria and Chiari, Lorenzo and Klenk, Jochen and Becker, Clemens and Caulfield, Brian and Ifrim, Georgiana}
 }
+`
